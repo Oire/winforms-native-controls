@@ -1,5 +1,0 @@
-blank_issues_enabled: true
-contact_links:
-  - name: Win32 menu documentation
-    url: https://learn.microsoft.com/en-us/windows/win32/menurc/menus
-    about: Questions about how Win32 menus themselves behave are best answered here.

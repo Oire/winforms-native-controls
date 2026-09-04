@@ -21,4 +21,4 @@ Fixes # (issue number)
 - [ ] I ran `dotnet format` and there are no formatting differences
 - [ ] I added or updated tests for my change
 - [ ] I updated `CHANGELOG.md` for any user-visible change
-- [ ] Any new menu text comes from the caller, not from this library (see CONTRIBUTING)
+- [ ] Any new user-visible text comes from the caller, not from this library
