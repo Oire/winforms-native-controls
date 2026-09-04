@@ -1,5 +1,3 @@
-using System.ComponentModel;
-
 namespace Oire.WinForms.NativeControls;
 
 /// <summary>
@@ -20,21 +18,22 @@ namespace Oire.WinForms.NativeControls;
 /// <c>GridItemPattern</c> and <c>TableItemPattern</c>. But <c>GridPattern.GetItem(row, column)</c>
 /// on the container returns empty, typeless elements. That call is how a screen reader walks to
 /// a cell, so the reader enters table mode, asks for a cell, gets nothing usable back, and falls
-/// through to the row's <c>Name</c> — which is only the first column. The result, confirmed by
-/// ear with JAWS, NVDA and Narrator, is a list where only the first column can be read and
-/// column navigation goes nowhere.
+/// through to the row's <c>Name</c> — which is only the first column. Confirmed by ear with
+/// JAWS, NVDA and Narrator: only the first column is readable and column navigation goes
+/// nowhere.
 /// </para>
 /// <para>
-/// Declining to answer <c>WM_GETOBJECT</c> for <c>UiaRootObjectId</c> makes UI Automation fall
-/// back to the MSAA bridge, where the control is a plain list with one named item per row, and
-/// screen readers use their own <c>SysListView32</c> support again. Nothing is lost at the MSAA
-/// layer: role, name and per-row items are identical either way.
+/// This control declines to answer <c>WM_GETOBJECT</c> for <c>UiaRootObjectId</c>, which makes
+/// UI Automation fall back to the MSAA bridge, where the control is a plain list with one named
+/// item per row and screen readers use their own <c>SysListView32</c> support again. Nothing is
+/// lost at the MSAA layer: role, name and per-row items are identical either way.
 /// </para>
 /// <para>
-/// If a future framework release fixes <c>GetItem</c>, set
-/// <see cref="AccessibilityMode"/> to <see cref="ListAccessibilityMode.Table"/> to get the
-/// richer table semantics back — per-cell column headers and column navigation are genuinely
-/// better than a flat list, when they work.
+/// There is deliberately no property to switch the behavior off. It would not be a trade-off
+/// with a defensible other side, and an application that wants the stock presentation back
+/// already has a way to ask for it: use <see cref="ListView"/>. If a future framework release
+/// fixes <c>GetItem</c>, prefer the stock control — per-cell column headers and column
+/// navigation are genuinely better than a flat list, when they work.
 /// </para>
 /// </remarks>
 public class NativeListView: ListView {
@@ -46,38 +45,9 @@ public class NativeListView: ListView {
     /// </summary>
     private const int UiaRootObjectId = -25;
 
-    private ListAccessibilityMode _accessibilityMode = ListAccessibilityMode.List;
-
-    /// <summary>
-    /// Whether to expose WinForms' UI Automation provider. Defaults to
-    /// <see cref="ListAccessibilityMode.List"/>.
-    /// </summary>
-    /// <remarks>
-    /// Changing this after the handle exists recreates it, because assistive technology caches
-    /// what a window reported the first time it asked.
-    /// </remarks>
-    [DefaultValue(ListAccessibilityMode.List)]
-    [Category("Accessibility")]
-    [Description("Whether the list is announced as a native list (default) or as a WinForms table.")]
-    public ListAccessibilityMode AccessibilityMode {
-        get => _accessibilityMode;
-        set {
-            if (_accessibilityMode == value) {
-                return;
-            }
-
-            _accessibilityMode = value;
-            if (IsHandleCreated) {
-                RecreateHandle();
-            }
-        }
-    }
-
     /// <inheritdoc />
     protected override void WndProc(ref Message m) {
-        if (_accessibilityMode == ListAccessibilityMode.List
-            && m.Msg == WM_GETOBJECT
-            && (int)m.LParam.ToInt64() == UiaRootObjectId) {
+        if (m.Msg == WM_GETOBJECT && (int)m.LParam.ToInt64() == UiaRootObjectId) {
             m.Result = IntPtr.Zero;
             return;
         }

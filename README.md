@@ -140,7 +140,6 @@ the `MenuStrip` sluggishness proved unfixable by every pre-warming trick availab
 | `AccelConverter` | `Keys` → `ACCEL` mapping |
 | `ListViewHeaderHitTest` | Whether a screen point is on a `ListView`'s column-header band |
 | `NativeListView` | A `ListView` that is announced as a list rather than a broken table |
-| `ListAccessibilityMode` | `List` (default) or `Table`, for `NativeListView` |
 
 ## Things it does on purpose
 
@@ -187,13 +186,15 @@ and screen readers use their own `SysListView32` support again. Nothing is lost 
 layer — role, name and per-row items are identical either way.
 
 ```csharp
-// Drop-in for ListView; defaults to ListAccessibilityMode.List.
+// A drop-in for ListView. Nothing to configure.
 var notes = new NativeListView { View = View.Details, FullRowSelect = true };
 ```
 
-If a future framework release fixes `GetItem`, set `AccessibilityMode` to
-`ListAccessibilityMode.Table` and the richer semantics come back — per-cell column headers and
-column navigation are genuinely better than a flat list, when they work.
+There is deliberately no property to switch the behavior off. It would not be a trade-off with a
+defensible other side, and an application that wants the stock presentation already has a way to
+ask for it: use `ListView`. If a future framework release fixes `GetItem`, prefer the stock
+control — per-cell column headers and column navigation are genuinely better than a flat list,
+when they work.
 
 ## Localization
 
@@ -309,7 +310,6 @@ The library lives in `src/Oire.WinForms.NativeControls/`:
 * `MenuTrackingScope.cs` — guards a rebuild against a popup that is currently being tracked.
 * `ListViewHeaderHitTest.cs` — `LVM_GETHEADER` / `HDM_HITTEST` for the column-header band.
 * `NativeListView.cs` — the `ListView` subclass that declines WinForms' UI Automation provider.
-* `ListAccessibilityMode.cs` — its `List` / `Table` switch.
 * `Win32Interop.cs` — the P/Invoke surface and Win32 constants.
 
 And alongside it, `tests/Oire.WinForms.NativeControls.Tests/` — the xUnit suite, including
