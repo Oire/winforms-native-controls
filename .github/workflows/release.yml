@@ -1,0 +1,109 @@
+# Packs the NuGet package on a version tag and publishes it to nuget.org.
+# GitVersion (see GitVersion.yml) is in ManualDeployment mode, so releases are cut by pushing a
+# `v*` tag. This workflow only runs for those tags.
+#
+# It runs in two stages, both automatic - pushing the tag is the only human action:
+#   1. build-test  - builds, tests and packs, then prints the exact .nupkg name (with its
+#                    GitVersion-resolved version) to the run summary and uploads it as an artifact.
+#   2. publish     - downloads that same artifact, pushes it to nuget.org via Trusted Publishing
+#                    and cuts the GitHub release.
+#
+# The `nuget` environment is required, not decorative: the nuget.org trusted-publishing policy
+# pins the repository, this workflow's filename and that environment, so the OIDC exchange only
+# works from a job that enters it. Renaming this file breaks publishing.
+#
+# Note that nuget.org versions are immutable: once this workflow pushes, that version is permanent.
+# The tag is the point of no return.
+
+name: Release
+
+on:
+  push:
+    tags: [ "v*" ]
+
+jobs:
+  build-test:
+    runs-on: windows-latest
+
+    steps:
+    - uses: actions/checkout@v7
+      with:
+        fetch-depth: 0
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v6
+      with:
+        global-json-file: global.json
+    - name: Setup .NET 8 runtime
+      uses: actions/setup-dotnet@v6
+      with:
+        dotnet-version: '8.0.x'
+    - name: Restore dependencies
+      run: dotnet restore
+    - name: Build
+      run: dotnet build --no-restore -c Release
+    - name: Test
+      run: dotnet test --no-build -c Release --verbosity normal
+    - name: Pack
+      run: dotnet pack src/Oire.WinForms.NativeControls/Oire.WinForms.NativeControls.csproj --no-build -c Release -o artifacts
+    - name: Show packed package
+      run: |
+        $packages = Get-ChildItem artifacts/*.nupkg
+        "### 📦 Packed package" | Out-File $env:GITHUB_STEP_SUMMARY -Append
+        foreach ($p in $packages) {
+          $size = '{0:N1} KB' -f ($p.Length / 1KB)
+          "- **$($p.Name)**  ($size)" | Out-File $env:GITHUB_STEP_SUMMARY -Append
+          Write-Host "Packed: $($p.Name) ($size)"
+        }
+    - name: Upload package
+      uses: actions/upload-artifact@v7
+      with:
+        name: nuget-package
+        path: |
+          artifacts/*.nupkg
+          artifacts/*.snupkg
+        if-no-files-found: error
+
+  publish:
+    needs: build-test
+    runs-on: windows-latest
+    environment: nuget
+    permissions:
+      contents: write   # create the GitHub release
+      id-token: write   # request the OIDC token for NuGet Trusted Publishing
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+
+    steps:
+    - name: Download package
+      uses: actions/download-artifact@v8
+      with:
+        name: nuget-package
+        path: artifacts
+    # Trusted Publishing: exchange the GitHub OIDC token for a short-lived (1 hour, single-use)
+    # nuget.org API key. Requires a matching trusted-publishing policy on nuget.org bound to this
+    # repo, the `release.yml` workflow file and the `nuget` environment (hence the `environment:`
+    # key above - dropping it would break the OIDC exchange). No stored API key.
+    - name: NuGet login (OIDC to temporary API key)
+      uses: NuGet/login@v1
+      id: nuget-login
+      with:
+        user: ${{ secrets.NUGET_USER }}
+    - name: Publish to NuGet
+      run: |
+        # Resolve the real path: PowerShell does not expand globs for native commands, and
+        # `dotnet nuget push` treats "artifacts/*.nupkg" literally. Pushing the .nupkg also pushes
+        # the co-located .snupkg symbols package to nuget.org automatically.
+        $pkg = Get-ChildItem artifacts/*.nupkg | ForEach-Object { $_.FullName }
+        dotnet nuget push $pkg --api-key "${{ steps.nuget-login.outputs.NUGET_API_KEY }}" --source https://api.nuget.org/v3/index.json --skip-duplicate
+    - name: Create GitHub release
+      run: |
+        $tag = $env:GITHUB_REF_NAME
+        $assets = Get-ChildItem artifacts/*.nupkg, artifacts/*.snupkg -ErrorAction SilentlyContinue | ForEach-Object { $_.FullName }
+        # Build one flat argument array and let PowerShell expand it into separate args for the native
+        # command. Do NOT use `@` splatting on a native command: it splits a single string path into
+        # its characters (a .nupkg path became "D", ":", "\", ... and gh choked on "D").
+        $ghArgs = @($tag) + $assets + @('--verify-tag', '--generate-notes', '--title', $tag)
+        # Tags carrying a pre-release suffix (e.g. v1.2.3-beta.1) are marked as pre-releases on GitHub.
+        if ($tag -match '-') { $ghArgs += '--prerelease' }
+        gh release create $ghArgs

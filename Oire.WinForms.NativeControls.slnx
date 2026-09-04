@@ -1,0 +1,8 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/Oire.WinForms.NativeControls/Oire.WinForms.NativeControls.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Oire.WinForms.NativeControls.Tests/Oire.WinForms.NativeControls.Tests.csproj" />
+  </Folder>
+</Solution>

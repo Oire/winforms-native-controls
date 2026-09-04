@@ -1,0 +1,40 @@
+# Builds and tests on every push and pull request.
+# For more information see: https://docs.github.com/en/actions/automating-builds-and-tests/building-and-testing-net
+
+name: .NET
+
+on:
+  push:
+    branches: [ "master" ]
+  pull_request:
+    branches: [ "master" ]
+
+jobs:
+  build:
+
+    # Windows only, and not negotiable: the library P/Invokes user32, and the tests allocate
+    # real HMENU handles and a real Form on an STA thread.
+    runs-on: windows-latest
+
+    steps:
+    - uses: actions/checkout@v7
+      with:
+        fetch-depth: 0
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v6
+      with:
+        global-json-file: global.json
+    # The library targets net8.0-windows, so the tests need the 8 runtime to run on their
+    # minimum supported framework rather than rolling forward to the SDK's own.
+    - name: Setup .NET 8 runtime
+      uses: actions/setup-dotnet@v6
+      with:
+        dotnet-version: '8.0.x'
+    - name: Restore dependencies
+      run: dotnet restore
+    - name: Check format
+      run: dotnet format --verify-no-changes
+    - name: Build
+      run: dotnet build --no-restore
+    - name: Test
+      run: dotnet test --no-build --verbosity normal
