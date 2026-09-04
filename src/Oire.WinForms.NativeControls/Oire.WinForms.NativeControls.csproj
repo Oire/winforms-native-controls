@@ -1,11 +1,13 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
     <PropertyGroup>
-        <!-- net8.0-windows, not net10: the WinForms and Win32 surface this uses is stable across
-             8, 9 and 10, and targeting the LTS lets every current app consume the package without
-             a multi-targeting matrix. Plain net8.0-windows rather than a version-pinned
-             net8.0-windows10.0.x so consumers are not forced onto a minimum Windows SDK. -->
-        <TargetFramework>net8.0-windows</TargetFramework>
+        <!-- net10.0-windows: the current LTS, supported to November 2028, and what every
+             application that would consume this already targets. .NET 8 leaves support in
+             November 2026 and .NET 9 already has, so targeting 8 would buy reach that does not
+             exist while keeping the library off newer APIs. Plain net10.0-windows rather than a
+             version-pinned net10.0-windows10.0.x, so consumers are not forced onto a minimum
+             Windows SDK. -->
+        <TargetFramework>net10.0-windows</TargetFramework>
         <UseWindowsForms>true</UseWindowsForms>
         <!-- AnyCPU: a library must not force a bitness on its consumers. The interop uses
              nint/nuint rather than fixed-width casts, so it is correct on x86, x64 and Arm64. -->

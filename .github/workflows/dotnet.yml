@@ -24,12 +24,6 @@ jobs:
       uses: actions/setup-dotnet@v6
       with:
         global-json-file: global.json
-    # The library targets net8.0-windows, so the tests need the 8 runtime to run on their
-    # minimum supported framework rather than rolling forward to the SDK's own.
-    - name: Setup .NET 8 runtime
-      uses: actions/setup-dotnet@v6
-      with:
-        dotnet-version: '8.0.x'
     - name: Restore dependencies
       run: dotnet restore
     - name: Check format

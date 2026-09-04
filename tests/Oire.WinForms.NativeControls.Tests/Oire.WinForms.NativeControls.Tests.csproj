@@ -1,10 +1,8 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <!-- Matches the library's target so the tests exercise the minimum supported framework
-         rather than a newer one. UseWindowsForms is off: the tests reference the WinForms
-         assembly transitively and instantiate a Form only inside StaRunner. -->
-    <TargetFramework>net8.0-windows</TargetFramework>
+    <!-- Matches the library's target. -->
+    <TargetFramework>net10.0-windows</TargetFramework>
     <UseWindowsForms>true</UseWindowsForms>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>

@@ -20,8 +20,7 @@ dotnet format --verify-no-changes
 Windows only — the library P/Invokes `user32`, and the tests allocate real `HMENU` handles and
 a real `Form` on an STA thread. CI runs exactly these three commands.
 
-The library targets `net8.0-windows`; the tests target it too, so they run on the minimum
-supported framework rather than whatever SDK you happen to have.
+The library and the tests both target `net10.0-windows`.
 
 ## Scope
 

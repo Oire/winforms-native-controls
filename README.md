@@ -13,7 +13,7 @@ sluggish on first open no matter how much you pre-warm them. This puts menus bac
 dotnet add package Oire.WinForms.NativeControls
 ```
 
-Targets `net8.0-windows`, AnyCPU. Consumable from .NET 8, 9 and 10 applications.
+Targets `net10.0-windows`, AnyCPU.
 
 ## Quick start
 
@@ -135,8 +135,6 @@ Known limitations tracked for 1.0:
 - No dynamic item insert/remove — rebuild the spec instead.
 
 Intended next members, same disease and same cure: a native toolbar and a native status bar.
-`ListView` is deliberately **not** on that list; WinForms' `ListView` is already a real
-`SysListView32`, so there is nothing there to replace.
 
 ## License
 
