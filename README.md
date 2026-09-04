@@ -32,6 +32,9 @@ sluggish on first open no matter how much you pre-warm them. This puts menus bac
   localize menus with whatever framework they already use and this library imposes none.
 * **Right-to-left aware.** Popups get the per-item `MFT_RIGHTORDER | MFT_RIGHTJUSTIFY` flags that
   `WS_EX_LAYOUTRTL` does not apply on its own.
+* **A `ListView` that reads all of its columns again.** WinForms reports a Details-mode list to
+  UI Automation as a table whose cell navigation does not work, so screen readers read only the
+  first column and cannot move across. `NativeListView` gets that provider out of the way.
 * **Packaged properly.** XML documentation for IntelliSense, deterministic builds, and
   SourceLink-enabled `snupkg` symbols so you can step straight into the library source.
 
@@ -112,11 +115,14 @@ The obvious fix — go back to `MainMenu` — is not available. Those classes st
 .NET for binary compatibility, but every constructor throws `PlatformNotSupportedException` and
 every method is a stub. There is no supported route back to native menus in WinForms.
 
-This library is that route. It is deliberately narrow: it replaces the WinForms controls whose
-managed reimplementation hurt accessibility, and nothing else. A control that already sits on a
-real Win32 control — `ListView`, `TreeView`, `ComboBox` and friends — has nothing to replace, and
-wrapping it again would only add a layer between the user and three decades of screen-reader
-compatibility work.
+This library is that route. It is deliberately narrow: it addresses the places where a WinForms
+managed layer hurt accessibility, and nothing else. Where a WinForms control is still a thin
+wrapper over a real Win32 control and behaves, there is nothing here to fix — the goal is to get
+out of the way of three decades of screen-reader compatibility work, not to add another layer.
+
+The same principle explains why `NativeListView` exists even though a WinForms `ListView` really
+is a `SysListView32`. The control is fine; the UI Automation provider layered on top of it is
+not. See its own section below.
 
 It was extracted from Notika, a note-taking application whose primary maintainer is blind, after
 the `MenuStrip` sluggishness proved unfixable by every pre-warming trick available.
@@ -133,6 +139,8 @@ the `MenuStrip` sluggishness proved unfixable by every pre-warming trick availab
 | `MenuTextFormatter` | Mnemonic parsing and Win32 accelerator-text formatting |
 | `AccelConverter` | `Keys` → `ACCEL` mapping |
 | `ListViewHeaderHitTest` | Whether a screen point is on a `ListView`'s column-header band |
+| `NativeListView` | A `ListView` that is announced as a list rather than a broken table |
+| `ListAccessibilityMode` | `List` (default) or `Table`, for `NativeListView` |
 
 ## Things it does on purpose
 
@@ -150,6 +158,42 @@ the `MenuStrip` sluggishness proved unfixable by every pre-warming trick availab
   `WS_EX_LAYOUTRTL` alone does not do.
 - **Rebuild is cheap and expected.** Menus are rebuilt from a fresh spec on a language change,
   and context menus on every invocation. There is deliberately no `IsVisible` on an item.
+
+## The ListView problem
+
+A WinForms `ListView` in Details view is a real `SysListView32`, and screen readers have carried
+dedicated handling for that control for decades: they read every column and let the user move
+between them. WinForms then layers a UI Automation provider on top which reports the control as
+`ControlType.Table` — and that provider is incomplete in a way that matters.
+
+Measured on .NET 10:
+
+| | Stock WinForms `ListView` |
+| --- | --- |
+| Control type | `Table` |
+| Patterns advertised | Selection, Grid, MultipleView, Table |
+| Grid dimensions | correct |
+| Table column headers | correct |
+| Each cell's `GridItemPattern` / `TableItemPattern` | correct row, column and header |
+| **`GridPattern.GetItem(row, column)`** | **returns empty, typeless elements** |
+
+Every piece of data is present, but `GetItem` — the call a screen reader makes to walk to a
+cell — is broken. So the reader sees a table, enters table mode, asks for a cell, gets nothing
+usable, and falls back to the row's `Name`, which is only the first column. Confirmed by ear with
+JAWS, NVDA and Narrator: only the first column is read, and there is no way to reach the others.
+
+`NativeListView` declines to serve that provider, so UI Automation falls back to the MSAA bridge
+and screen readers use their own `SysListView32` support again. Nothing is lost at the MSAA
+layer — role, name and per-row items are identical either way.
+
+```csharp
+// Drop-in for ListView; defaults to ListAccessibilityMode.List.
+var notes = new NativeListView { View = View.Details, FullRowSelect = true };
+```
+
+If a future framework release fixes `GetItem`, set `AccessibilityMode` to
+`ListAccessibilityMode.Table` and the richer semantics come back — per-cell column headers and
+column navigation are genuinely better than a flat list, when they work.
 
 ## Localization
 
@@ -174,10 +218,12 @@ French and Ukrainian catalogs.
 
 ## Accessibility status, honestly
 
-Verified by ear with **JAWS**. NVDA and Narrator have not been tested — the design should suit
-them, since native menus are exactly what UI Automation and MSAA both understand best, but
-nobody has confirmed it and this README will not claim otherwise until someone has. Reports
-welcome.
+The menus are verified by ear with **JAWS**, **NVDA** and **Narrator**, and behave as expected
+on all three.
+
+`NativeListView` is verified on the same three: the stock WinForms behavior reads only the first
+column on every one of them, and the native presentation reads all columns on every one of them.
+Reports from other configurations are welcome.
 
 RTL rendering is implemented but has not been verified against a real RTL locale.
 
@@ -262,6 +308,8 @@ The library lives in `src/Oire.WinForms.NativeControls/`:
 * `AccelConverter.cs` — the `Keys` to `ACCEL` mapping.
 * `MenuTrackingScope.cs` — guards a rebuild against a popup that is currently being tracked.
 * `ListViewHeaderHitTest.cs` — `LVM_GETHEADER` / `HDM_HITTEST` for the column-header band.
+* `NativeListView.cs` — the `ListView` subclass that declines WinForms' UI Automation provider.
+* `ListAccessibilityMode.cs` — its `List` / `Table` switch.
 * `Win32Interop.cs` — the P/Invoke surface and Win32 constants.
 
 And alongside it, `tests/Oire.WinForms.NativeControls.Tests/` — the xUnit suite, including

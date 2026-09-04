@@ -29,6 +29,11 @@ First release. Extracted from the Notika desktop application, where it replaced 
 - `ListViewHeaderHitTest` - whether a screen point falls on a `ListView`'s column-header band.
 - Right-to-left popup support via `MFT_RIGHTORDER | MFT_RIGHTJUSTIFY`, which
   `WS_EX_LAYOUTRTL` alone does not provide.
+- `NativeListView` and `ListAccessibilityMode` - a `ListView` that declines WinForms' UI
+  Automation provider, so screen readers read every column again instead of only the first.
+  WinForms reports a Details-mode list as `ControlType.Table` but its
+  `GridPattern.GetItem(row, column)` returns unusable elements, which breaks cell navigation on
+  JAWS, NVDA and Narrator alike.
 
 [Unreleased]: https://github.com/Oire/winforms-native-controls/compare/v0.1.0...HEAD
 [0.1.0]: https://github.com/Oire/winforms-native-controls/releases/tag/v0.1.0
