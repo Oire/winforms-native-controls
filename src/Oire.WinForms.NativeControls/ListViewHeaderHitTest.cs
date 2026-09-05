@@ -17,12 +17,27 @@ public static class ListViewHeaderHitTest {
     public static bool IsOnHeader(ListView listView, Point screenLocation) {
         ArgumentNullException.ThrowIfNull(listView);
 
-        if (!listView.IsHandleCreated) {
+        return listView.IsHandleCreated && IsOnHeaderOf(listView.Handle, screenLocation);
+    }
+
+    /// <summary>
+    /// True when <paramref name="screenLocation"/> falls on the header band of a
+    /// <see cref="NativeListView"/>.
+    /// </summary>
+    public static bool IsOnHeader(NativeListView listView, Point screenLocation) {
+        ArgumentNullException.ThrowIfNull(listView);
+
+        // The list window, not the container: the header belongs to the control itself.
+        return IsOnHeaderOf(listView.ListHandle, screenLocation);
+    }
+
+    private static bool IsOnHeaderOf(IntPtr listHandle, Point screenLocation) {
+        if (listHandle == IntPtr.Zero) {
             return false;
         }
 
         var header = Win32Interop.SendMessageW(
-            listView.Handle, Win32Interop.LVM_GETHEADER, IntPtr.Zero, IntPtr.Zero);
+            listHandle, Win32Interop.LVM_GETHEADER, IntPtr.Zero, IntPtr.Zero);
         if (header == IntPtr.Zero) {
             return false;
         }

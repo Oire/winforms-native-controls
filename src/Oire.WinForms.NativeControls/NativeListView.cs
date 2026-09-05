@@ -139,6 +139,30 @@ public class NativeListView: Control {
         }
     }
 
+    /// <summary>
+    /// The name a screen reader announces for the list.
+    /// </summary>
+    /// <remarks>
+    /// Shadows <see cref="Control.AccessibleName"/> because the name has to reach the list
+    /// window, not the container a reader never sees, and the base property is not virtual.
+    /// Assigning through a <see cref="Control"/>-typed reference therefore sets the name
+    /// without forwarding it; call <see cref="RefreshAccessibleName"/> if that happens.
+    /// </remarks>
+    [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
+    public new string? AccessibleName {
+        get => base.AccessibleName;
+        set {
+            base.AccessibleName = value;
+            ApplyAccessibleName();
+        }
+    }
+
+    /// <summary>
+    /// Pushes <see cref="AccessibleName"/> to the list window again — after a language
+    /// change, or any assignment that did not go through this type.
+    /// </summary>
+    public void RefreshAccessibleName() => ApplyAccessibleName();
+
     /// <summary>Whether the list window exists yet. State lives in the model until it does.</summary>
     internal bool HasWindow => _listHandle != IntPtr.Zero;
 
@@ -182,6 +206,24 @@ public class NativeListView: Control {
         ListViewInterop.SendMessageW(_listHandle, ListViewInterop.WM_SETREDRAW, 1, IntPtr.Zero);
         Invalidate(true);
     }
+
+    /// <summary>Deselects every row.</summary>
+    public void ClearSelection() {
+        if (_listHandle == IntPtr.Zero) {
+            return;
+        }
+
+        foreach (var item in _items) {
+            item.PendingSelected = false;
+        }
+
+        // An index of -1 applies the state to every row at once.
+        var state = new ListViewInterop.LVITEMW { State = 0, StateMask = ListViewInterop.LVIS_SELECTED };
+        ListViewInterop.SendMessageW(_listHandle, ListViewInterop.LVM_SETITEMSTATE, -1, ref state);
+    }
+
+    /// <summary>The row at a point in this control's client coordinates, or null.</summary>
+    public NativeListViewItem? GetItemAt(int x, int y) => GetItemAt(new Point(x, y));
 
     /// <summary>The row at a point in this control's client coordinates, or null.</summary>
     public NativeListViewItem? GetItemAt(Point clientPoint) {
