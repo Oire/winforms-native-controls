@@ -46,7 +46,7 @@
 
         <!-- Package metadata. Version comes from GitVersion (ManualDeployment): a `v*` tag sets it. -->
         <Product>Oire WinForms Native Controls</Product>
-        <Description>Native Win32 menu bars and context menus for Windows Forms, built on real HMENU handles instead of WinForms' managed ToolStrip. Screen readers announce them as menu bars, submenus and popup menus, with mnemonic-collision validation and a proper accelerator table. Toolbars and status bars are the intended next members.</Description>
+        <Description>Win32-native replacements for the Windows Forms controls that screen readers handle poorly. Menu bars and context menus built on real HMENU handles instead of WinForms' managed ToolStrip, announced as menu bars, submenus and popup menus, with mnemonic-collision validation and a proper accelerator table. Plus a ListView that screen readers can read past the first column, which the stock control's UI Automation provider prevents. Toolbars and status bars are the intended next members.</Description>
         <Authors>André Polykanine, Oire Software</Authors>
         <Company>Oire Software</Company>
         <Copyright>Copyright © 2026 André Polykanine, Oire Software, and contributors.</Copyright>
@@ -55,7 +55,7 @@
         <RepositoryUrl>https://github.com/Oire/winforms-native-controls</RepositoryUrl>
         <RepositoryType>git</RepositoryType>
         <PackageProjectUrl>https://github.com/Oire/winforms-native-controls</PackageProjectUrl>
-        <PackageTags>winforms;accessibility;a11y;screen-reader;win32;pinvoke;hmenu;menu;jaws</PackageTags>
+        <PackageTags>winforms;accessibility;a11y;screen-reader;win32;pinvoke;hmenu;menu;listview;jaws;nvda</PackageTags>
         <PackageReadmeFile>docs/README.md</PackageReadmeFile>
         <PackageReleaseNotes>https://github.com/Oire/winforms-native-controls/blob/master/CHANGELOG.md</PackageReleaseNotes>
     </PropertyGroup>

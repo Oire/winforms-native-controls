@@ -10,8 +10,7 @@ version is `0.x` the public API may change in a minor release.
 
 ## [0.1.0] - 2026-09-05
 
-First release. Extracted from the Notika desktop application, where it replaced WinForms'
-`MenuStrip` and `ContextMenuStrip` throughout.
+First release.
 
 ### Added
 

@@ -243,11 +243,12 @@ public sealed class NativeMenuBar: IDisposable {
     /// menu shortcut fires from any focus inside the form — including while the menu is open.
     /// </summary>
     /// <remarks>
-    /// The <see cref="Form.ActiveForm"/> check keeps accelerators from firing while a modal
-    /// dialog is up. Every secondary window in Notika is a <c>ShowDialog</c> modal owned by
-    /// the main form, so <c>ActiveForm</c> flips to the dialog for its lifetime and back
-    /// afterwards. Introduce a modeless child window and this needs to become an
-    /// <c>Activated</c> / <c>Deactivate</c> subscription instead.
+    /// The <see cref="Form.ActiveForm"/> check keeps accelerators from firing while another
+    /// form is active. That is correct as long as every secondary window is a
+    /// <c>ShowDialog</c> modal owned by the menu's form, because <c>ActiveForm</c> then flips
+    /// to the dialog for its lifetime and back afterwards. An application with modeless child
+    /// windows needs an <c>Activated</c> / <c>Deactivate</c> subscription instead; that is a
+    /// known limitation, tracked for 1.0.
     /// </remarks>
     private sealed class AcceleratorFilter(NativeMenuBar owner): IMessageFilter {
         private const int WM_KEYFIRST = 0x0100;

@@ -5,12 +5,16 @@
 [![Build status](https://github.com/Oire/winforms-native-controls/actions/workflows/dotnet.yml/badge.svg?branch=master)](https://github.com/Oire/winforms-native-controls/actions/workflows/dotnet.yml)
 [![License: Apache 2.0](https://img.shields.io/badge/license-Apache%202.0-blue)](LICENSE)
 
-Win32-native replacements for the WinForms controls that screen readers handle poorly — starting with menus.
+Win32-native replacements for the WinForms controls that screen readers handle poorly — menus and list views today.
 
 WinForms reimplemented its menus in managed code, and screen readers have paid for it ever
 since. `MenuStrip` and `ContextMenuStrip` announce generically, render submenus poorly, and are
 sluggish on first open no matter how much you pre-warm them. This puts menus back on real Win32
 `HMENU` handles, where every screen reader has understood them for thirty years.
+
+The same story turns up on `ListView`: the control underneath is fine, but the UI Automation
+provider WinForms layers over it reports a broken table, and screen readers read one column out
+of four. `NativeListView` gets that layer out of the way.
 
 ## Features
 
@@ -124,8 +128,9 @@ The same principle explains why `NativeListView` exists even though a WinForms `
 is a `SysListView32`. The control is fine; the UI Automation provider layered on top of it is
 not. See its own section below.
 
-It was extracted from Notika, a note-taking application whose primary maintainer is blind, after
-the `MenuStrip` sluggishness proved unfixable by every pre-warming trick available.
+None of this is hypothetical. Every behavior described here was found by listening — in real
+Windows Forms applications, with the screen readers people actually use — and the workarounds
+were written only after the stock controls had been measured and found wanting.
 
 ## What's in the box
 
