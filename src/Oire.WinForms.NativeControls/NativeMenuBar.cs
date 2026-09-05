@@ -55,7 +55,10 @@ public sealed class NativeMenuBar: IDisposable {
 
         MenuSpecValidator.Validate(spec);
 
-        var tree = NativeMenuTree.Build(spec, isMenuBar: true, rightToLeft: false);
+        // WS_EX_LAYOUTRTL mirrors the menu bar itself, but a dropdown is its own window and
+        // needs the per-item flags — without them submenus open leftwards on an RTL layout,
+        // and the arrow keys that walk into them stay reversed.
+        var tree = NativeMenuTree.Build(spec, isMenuBar: true, rightToLeft: IsRightToLeft);
         var accelerators = CreateAccelerators(tree);
 
         _tree = tree;
@@ -93,7 +96,7 @@ public sealed class NativeMenuBar: IDisposable {
 
         MenuSpecValidator.Validate(spec);
 
-        var newTree = NativeMenuTree.Build(spec, isMenuBar: true, rightToLeft: false);
+        var newTree = NativeMenuTree.Build(spec, isMenuBar: true, rightToLeft: IsRightToLeft);
         IntPtr newAccelerators;
         try {
             newAccelerators = CreateAccelerators(newTree);
@@ -116,6 +119,12 @@ public sealed class NativeMenuBar: IDisposable {
         oldTree.Dispose();
         DestroyAccelerators(oldAccelerators);
     }
+
+    /// <summary>
+    /// Whether the owning form lays out right to left. Read fresh on every build, so a
+    /// language switch that flips the form also flips the menus.
+    /// </summary>
+    private bool IsRightToLeft => _form.RightToLeft == RightToLeft.Yes;
 
     /// <summary>
     /// Test seam: maps a command id to its callback without invoking it and without the

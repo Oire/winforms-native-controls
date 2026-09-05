@@ -19,6 +19,11 @@ version is `0.x` the public API may change in a minor release.
   MSAA rather than UI Automation. `NativeMenuBar` and `NativeContextMenu` now raise
   `EVENT_OBJECT_FOCUS` for the focused window when a menu is dismissed, and stay silent when
   an item was chosen, so a command's own announcement is not spoken over.
+- `NativeMenuBar` now follows its form's `RightToLeft`. It always built the menu bar left to
+  right, so on a right-to-left layout the dropdown items never got
+  `MFT_RIGHTORDER | MFT_RIGHTJUSTIFY`: submenus opened on the wrong side and the arrow keys
+  that open them stayed reversed. `WS_EX_LAYOUTRTL` mirrors the bar itself but not popups,
+  which are separate windows. `NativeContextMenu` already read its control's direction.
 
 ## [0.1.0] - 2026-09-05
 
