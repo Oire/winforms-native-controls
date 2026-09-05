@@ -41,6 +41,7 @@ public class NativeListView: Control {
     private IntPtr _listHandle;
     private IntPtr _fontHandle;
     private ChildMessageFilter? _childSubclass;
+    private ChildDropTarget? _dropTarget;
     private bool _multiSelect;
     private int _lastSelectedIndex = -1;
 
@@ -122,6 +123,19 @@ public class NativeListView: Control {
                 _listHandle, ListViewInterop.LVM_GETNEXTITEM, -1, (IntPtr)ListViewInterop.LVNI_FOCUSED);
 
             return index >= 0 && index < _items.Count ? _items[index] : null;
+        }
+    }
+
+    /// <summary>
+    /// Whether the control accepts drops. Registered on the list window as well as the
+    /// container, because the list covers it and OLE resolves a drop against the window
+    /// under the cursor.
+    /// </summary>
+    public override bool AllowDrop {
+        get => base.AllowDrop;
+        set {
+            base.AllowDrop = value;
+            UpdateDropTarget();
         }
     }
 
@@ -501,6 +515,8 @@ public class NativeListView: Control {
         _childSubclass = new ChildMessageFilter(this);
         _childSubclass.AssignHandle(_listHandle);
 
+        UpdateDropTarget();
+
         Reindex();
         foreach (var column in _columns) {
             InsertColumnNative(column.Index, column);
@@ -530,6 +546,12 @@ public class NativeListView: Control {
                 item.PendingSelected = IsSelected(item.Index);
                 item.PendingFocused = IsFocused(item.Index);
             }
+        }
+
+        if (_dropTarget is not null && _listHandle != IntPtr.Zero) {
+            // A failure here means it was not registered, which is exactly what we want.
+            _ = ListViewInterop.RevokeDragDrop(_listHandle);
+            _dropTarget = null;
         }
 
         _childSubclass?.ReleaseHandle();
@@ -675,6 +697,80 @@ public class NativeListView: Control {
 
         ListViewInterop.InitCommonControlsEx(ref icc);
         _commonControlsReady = true;
+    }
+
+    private void UpdateDropTarget() {
+        if (_listHandle == IntPtr.Zero) {
+            return;
+        }
+
+        if (AllowDrop && _dropTarget is null) {
+            var target = new ChildDropTarget(this);
+            var hr = ListViewInterop.RegisterDragDrop(_listHandle, target);
+            if (hr < 0) {
+                // Silently accepting no drops would look like a bug in the consumer.
+                Marshal.ThrowExceptionForHR(hr);
+            }
+
+            _dropTarget = target;
+        } else if (!AllowDrop && _dropTarget is not null) {
+            _ = ListViewInterop.RevokeDragDrop(_listHandle);
+            _dropTarget = null;
+        }
+    }
+
+    /// <summary>
+    /// Turns OLE drop callbacks on the list window into the ordinary WinForms drag events on
+    /// this control, so a consumer writes the same handlers it would for any other control.
+    /// </summary>
+    private sealed class ChildDropTarget(NativeListView owner): ListViewInterop.IOleDropTarget {
+        private IDataObject? _data;
+
+        public int OleDragEnter(IntPtr dataObject, int keyState, ListViewInterop.POINTL point, ref int effect) {
+            _data = Wrap(dataObject);
+            var args = Build(keyState, point, effect);
+            owner.OnDragEnter(args);
+            effect = (int)args.Effect;
+            return 0;
+        }
+
+        public int OleDragOver(int keyState, ListViewInterop.POINTL point, ref int effect) {
+            var args = Build(keyState, point, effect);
+            owner.OnDragOver(args);
+            effect = (int)args.Effect;
+            return 0;
+        }
+
+        public int OleDragLeave() {
+            owner.OnDragLeave(EventArgs.Empty);
+            _data = null;
+            return 0;
+        }
+
+        public int OleDrop(IntPtr dataObject, int keyState, ListViewInterop.POINTL point, ref int effect) {
+            _data = Wrap(dataObject) ?? _data;
+            var args = Build(keyState, point, effect);
+            owner.OnDragDrop(args);
+            effect = (int)args.Effect;
+            _data = null;
+            return 0;
+        }
+
+        /// <summary>
+        /// The incoming effect is the set the source permits; the handler narrows it to the
+        /// one it wants, which is what goes back out.
+        /// </summary>
+        private DragEventArgs Build(int keyState, ListViewInterop.POINTL point, int effect) =>
+            new(_data!, keyState, point.X, point.Y, (DragDropEffects)effect, DragDropEffects.None);
+
+        private static IDataObject? Wrap(IntPtr unknown) {
+            if (unknown == IntPtr.Zero) {
+                return null;
+            }
+
+            var value = Marshal.GetObjectForIUnknown(unknown);
+            return value as IDataObject ?? new DataObject(value);
+        }
     }
 
     /// <summary>

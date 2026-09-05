@@ -259,6 +259,46 @@ internal static class ListViewInterop {
         internal uint State;
     }
 
+    // --- OLE drag and drop ----------------------------------------------------------------
+
+    /// <summary>
+    /// Registers a window as a drop target. WinForms registers the container, but the list
+    /// window covers it, and OLE resolves a drop against the window under the cursor.
+    /// </summary>
+    [DllImport("ole32.dll", ExactSpelling = true)]
+    internal static extern int RegisterDragDrop(IntPtr hWnd, IOleDropTarget target);
+
+    [DllImport("ole32.dll", ExactSpelling = true)]
+    internal static extern int RevokeDragDrop(IntPtr hWnd);
+
+    /// <summary>A screen point, passed by value as the OLE interface declares it.</summary>
+    [StructLayout(LayoutKind.Sequential)]
+    internal struct POINTL {
+        internal int X;
+        internal int Y;
+    }
+
+    /// <summary>
+    /// <c>IDropTarget</c>. Declared here rather than taken from a framework assembly because
+    /// the managed <c>System.Windows.Forms.IDropTarget</c> is a different, higher-level thing.
+    /// </summary>
+    [ComImport]
+    [Guid("00000122-0000-0000-C000-000000000046")]
+    [InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
+    internal interface IOleDropTarget {
+        [PreserveSig]
+        int OleDragEnter(IntPtr dataObject, int keyState, POINTL point, ref int effect);
+
+        [PreserveSig]
+        int OleDragOver(int keyState, POINTL point, ref int effect);
+
+        [PreserveSig]
+        int OleDragLeave();
+
+        [PreserveSig]
+        int OleDrop(IntPtr dataObject, int keyState, POINTL point, ref int effect);
+    }
+
     // --- Message senders -----------------------------------------------------------------
 
     [DllImport("user32.dll", CharSet = CharSet.Unicode, ExactSpelling = true)]

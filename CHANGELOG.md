@@ -23,6 +23,10 @@ version is `0.x` the public API may change in a minor release.
   no items; keeping it leaves a `Table` whose `GridPattern.GetItem` returns nothing usable.
   No subclass can change a window's class, so the control now creates the real one - the
   same class wxWidgets creates, which reads every column on every reader.
+- `NativeListView` registers the list window as an OLE drop target and forwards to the
+  ordinary `DragEnter` / `DragOver` / `DragLeave` / `DragDrop` events, so drag and drop is
+  written the same way as for any other control. WinForms registers only the container, which
+  the list window covers, and OLE resolves a drop against the window under the cursor.
 
 ## [0.1.1] - 2026-09-05
 
