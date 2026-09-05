@@ -101,6 +101,9 @@ public sealed class NativeContextMenu: IDisposable {
         }
 
         if (command == 0) {
+            // Dismissed. Nothing moved focus, so nothing announced it either — say where the
+            // user is, or a screen reader can go on naming the menu that just closed.
+            FocusAnnouncer.AnnounceWhenIdle(owner);
             return;
         }
 

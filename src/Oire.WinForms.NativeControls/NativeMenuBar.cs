@@ -4,8 +4,8 @@ namespace Oire.WinForms.NativeControls;
 
 /// <summary>
 /// Owns a form's native menu bar: the <c>HMENU</c> tree, the accelerator table that fires its
-/// shortcuts from anywhere in the form, and the window subclass that routes
-/// <c>WM_COMMAND</c> and <c>WM_INITMENUPOPUP</c> back into the spec.
+/// shortcuts from anywhere in the form, and the window subclass that routes <c>WM_COMMAND</c>
+/// and <c>WM_INITMENUPOPUP</c> back into the spec and watches the menu loop open and close.
 /// </summary>
 /// <remarks>
 /// A native menu bar exists because JAWS announces one correctly as a menu bar, with real
@@ -17,6 +17,8 @@ public sealed class NativeMenuBar: IDisposable {
     private IntPtr _accelerators;
     private MenuMessageFilter? _subclass;
     private AcceleratorFilter? _acceleratorFilter;
+    private bool _commandChosen;
+    private IntPtr _focusAtMenuExit;
     private bool _disposed;
 
     /// <summary>Creates a menu bar owner for <paramref name="form"/>. Nothing is built until <see cref="Attach"/>.</summary>
@@ -143,6 +145,8 @@ public sealed class NativeMenuBar: IDisposable {
             return false;
         }
 
+        _commandChosen = true;
+
         var callback = _tree.Resolve(id);
         if (callback is not null && _form.IsHandleCreated) {
             _form.BeginInvoke(callback);
@@ -208,11 +212,31 @@ public sealed class NativeMenuBar: IDisposable {
     }
 
     /// <summary>
-    /// Subclasses the form's HWND to catch the two messages a native menu needs: the command
-    /// the user chose, and the request to refresh a popup's state just before it is shown.
+    /// Subclasses the form's HWND to catch what a native menu needs: the command the user
+    /// chose, the request to refresh a popup's state just before it is shown, and the menu
+    /// loop opening and closing.
     /// </summary>
     private sealed class MenuMessageFilter(NativeMenuBar owner): NativeWindow {
+        /// <summary>
+        /// Bounced to self after a menu closes, twice, to reach the far side of the
+        /// <c>WM_COMMAND</c> a chosen item posts as the menu loop unwinds. Posted messages are
+        /// FIFO, so the second bounce is guaranteed to land after it; <c>BeginInvoke</c> is not
+        /// usable here because WinForms drains its whole callback queue inside one message.
+        /// </summary>
+        private static readonly uint AnnounceFocusMessage =
+            Win32Interop.RegisterWindowMessageW("Oire.WinForms.NativeControls.AnnounceFocus");
+
         protected override void WndProc(ref Message m) {
+            if (m.Msg == (int)AnnounceFocusMessage && AnnounceFocusMessage != 0) {
+                if (m.WParam == IntPtr.Zero) {
+                    Win32Interop.PostMessageW(m.HWnd, AnnounceFocusMessage, 1, IntPtr.Zero);
+                } else if (!owner._commandChosen) {
+                    FocusAnnouncer.Announce(owner._focusAtMenuExit);
+                }
+
+                return;
+            }
+
             switch (m.Msg) {
                 case Win32Interop.WM_COMMAND:
                     // lParam is zero for menu and accelerator commands, and the child HWND for
@@ -226,6 +250,17 @@ public sealed class NativeMenuBar: IDisposable {
 
                 case Win32Interop.WM_INITMENUPOPUP:
                     owner._tree?.PushState(m.WParam);
+                    break;
+
+                case Win32Interop.WM_ENTERMENULOOP:
+                    owner._commandChosen = false;
+                    break;
+
+                case Win32Interop.WM_EXITMENULOOP:
+                    // Dismissing a menu moves no focus and so announces nothing. Say where the
+                    // user ended up — but not yet: a chosen item's WM_COMMAND has not arrived.
+                    owner._focusAtMenuExit = Win32Interop.GetFocus();
+                    Win32Interop.PostMessageW(m.HWnd, AnnounceFocusMessage, IntPtr.Zero, IntPtr.Zero);
                     break;
 
                 // WM_MENUCHAR is deliberately left to Windows: MenuSpecValidator guarantees

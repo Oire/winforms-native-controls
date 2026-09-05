@@ -8,6 +8,18 @@ version is `0.x` the public API may change in a minor release.
 
 ## [Unreleased]
 
+## [0.1.1] - 2026-09-05
+
+### Fixed
+
+- Closing a menu no longer leaves a screen reader announcing the menu. Native menu mode never
+  moves the keyboard focus, so leaving it fires no focus event, and a reader has to ask what
+  holds focus rather than being told - an answer that can still name the menu that just
+  closed. It shows up most clearly with `NativeListView`, which routes accessibility through
+  MSAA rather than UI Automation. `NativeMenuBar` and `NativeContextMenu` now raise
+  `EVENT_OBJECT_FOCUS` for the focused window when a menu is dismissed, and stay silent when
+  an item was chosen, so a command's own announcement is not spoken over.
+
 ## [0.1.0] - 2026-09-05
 
 First release.
@@ -34,5 +46,6 @@ First release.
   `GridPattern.GetItem(row, column)` returns unusable elements, which breaks cell navigation on
   JAWS, NVDA and Narrator alike.
 
-[Unreleased]: https://github.com/Oire/winforms-native-controls/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/Oire/winforms-native-controls/compare/v0.1.1...HEAD
+[0.1.1]: https://github.com/Oire/winforms-native-controls/releases/tag/v0.1.1
 [0.1.0]: https://github.com/Oire/winforms-native-controls/releases/tag/v0.1.0

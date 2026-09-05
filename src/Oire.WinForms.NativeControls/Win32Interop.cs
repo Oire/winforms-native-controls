@@ -120,6 +120,29 @@ internal static class Win32Interop {
     [DllImport("user32.dll", CharSet = CharSet.Unicode, ExactSpelling = true)]
     internal static extern IntPtr SendMessageW(IntPtr hWnd, uint msg, IntPtr wParam, ref HDHITTESTINFO lParam);
 
+    // --- Accessibility ------------------------------------------------------------------
+
+    [DllImport("user32.dll", CharSet = CharSet.Unicode, ExactSpelling = true)]
+    internal static extern IntPtr GetFocus();
+
+    [DllImport("user32.dll", CharSet = CharSet.Unicode, ExactSpelling = true, SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    internal static extern bool PostMessageW(IntPtr hWnd, uint msg, IntPtr wParam, IntPtr lParam);
+
+    /// <summary>
+    /// Reserves a process-wide unique message id. Safer than <c>WM_APP + n</c> on a window
+    /// whose WndProc belongs to WinForms and to the hosting application alike.
+    /// </summary>
+    [DllImport("user32.dll", CharSet = CharSet.Unicode, ExactSpelling = true, SetLastError = true)]
+    internal static extern uint RegisterWindowMessageW([MarshalAs(UnmanagedType.LPWStr)] string lpString);
+
+    /// <summary>
+    /// Raises a WinEvent for assistive technologies. Used to re-announce the focused control
+    /// after a menu closes: leaving menu mode moves no focus, so it fires nothing by itself.
+    /// </summary>
+    [DllImport("user32.dll", CharSet = CharSet.Unicode, ExactSpelling = true)]
+    internal static extern void NotifyWinEvent(uint eventId, IntPtr hWnd, int idObject, int idChild);
+
     // --- Structs ------------------------------------------------------------------------
 
     [StructLayout(LayoutKind.Sequential)]
@@ -183,6 +206,14 @@ internal static class Win32Interop {
     internal const int WM_CONTEXTMENU = 0x007B;
     internal const int WM_INITMENUPOPUP = 0x0117;
     internal const int WM_MENUCHAR = 0x0120;
+    internal const int WM_ENTERMENULOOP = 0x0211;
+    internal const int WM_EXITMENULOOP = 0x0212;
+
+    // --- WinEvents ----------------------------------------------------------------------
+
+    internal const uint EVENT_OBJECT_FOCUS = 0x8005;
+    internal const int OBJID_CLIENT = -4;
+    internal const int CHILDID_SELF = 0;
 
     /// <summary><c>LVM_FIRST + 31</c>. Returns the ListView header HWND, or zero outside Details view.</summary>
     internal const uint LVM_GETHEADER = 0x101F;
