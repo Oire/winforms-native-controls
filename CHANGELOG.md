@@ -40,12 +40,6 @@ version is `0.x` the public API may change in a minor release.
   height by what each row asks for, so zero hands the whole share to an auto-sized row,
   which grows and pushes the list down the panel.
 
-### Known limitations
-
-- With a screen reader running *and* the mouse driving the same window, the window can stop
-  responding for tens of seconds at a time. Measured: the application's own thread is idle
-  in `GetMessage` throughout, while the window is flooded with `WM_GETOBJECT` — the reader
-  hit-testing under the pointer. It does not reproduce with the reader closed.
 
 ## [0.1.1] - 2026-09-05
 
