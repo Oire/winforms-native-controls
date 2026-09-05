@@ -12,9 +12,10 @@ since. `MenuStrip` and `ContextMenuStrip` announce generically, render submenus 
 sluggish on first open no matter how much you pre-warm them. This puts menus back on real Win32
 `HMENU` handles, where every screen reader has understood them for thirty years.
 
-The same story turns up on `ListView`: the control underneath is fine, but the UI Automation
-provider WinForms layers over it reports a broken table, and screen readers read one column out
-of four. `NativeListView` gets that layer out of the way.
+The same story turns up on `ListView`. A Details-mode list really is a `SysListView32`, but
+WinForms registers its own window class for it — `WindowsForms10.SysListView32.app.0…` — and
+both UI Automation and NVDA choose their list handling *by window class name*. Neither matches,
+so screen readers read one column out of four. `NativeListView` creates the real thing instead.
 
 ## Features
 
@@ -36,9 +37,9 @@ of four. `NativeListView` gets that layer out of the way.
   localize menus with whatever framework they already use and this library imposes none.
 * **Right-to-left aware.** Popups get the per-item `MFT_RIGHTORDER | MFT_RIGHTJUSTIFY` flags that
   `WS_EX_LAYOUTRTL` does not apply on its own.
-* **A `ListView` that reads all of its columns again.** WinForms reports a Details-mode list to
-  UI Automation as a table whose cell navigation does not work, so screen readers read only the
-  first column and cannot move across. `NativeListView` gets that provider out of the way.
+* **A list that reads all of its columns again.** `NativeListView` is a genuine `SysListView32`
+  window rather than a WinForms one, which is what it takes for screen readers to recognize it
+  and read past the first column.
 * **Packaged properly.** XML documentation for IntelliSense, deterministic builds, and
   SourceLink-enabled `snupkg` symbols so you can step straight into the library source.
 
@@ -124,9 +125,9 @@ managed layer hurt accessibility, and nothing else. Where a WinForms control is 
 wrapper over a real Win32 control and behaves, there is nothing here to fix — the goal is to get
 out of the way of three decades of screen-reader compatibility work, not to add another layer.
 
-The same principle explains why `NativeListView` exists even though a WinForms `ListView` really
-is a `SysListView32`. The control is fine; the UI Automation provider layered on top of it is
-not. See its own section below.
+The same principle explains `NativeListView`. A WinForms `ListView` is a `SysListView32` wearing
+a window class no screen reader recognizes, and no subclass can change a window's class. So the
+control does not subclass one — it creates the real control. See its own section below.
 
 None of this is hypothetical. Every behavior described here was found by listening — in real
 Windows Forms applications, with the screen readers people actually use — and the workarounds
@@ -144,7 +145,7 @@ were written only after the stock controls had been measured and found wanting.
 | `MenuTextFormatter` | Mnemonic parsing and Win32 accelerator-text formatting |
 | `AccelConverter` | `Keys` → `ACCEL` mapping |
 | `ListViewHeaderHitTest` | Whether a screen point is on a `ListView`'s column-header band |
-| `NativeListView` | A `ListView` that is announced as a list rather than a broken table |
+| `NativeListView` | A real `SysListView32`, announced as a list and read column by column |
 
 ## Things it does on purpose
 
@@ -186,14 +187,27 @@ cell — is broken. So the reader sees a table, enters table mode, asks for a ce
 usable, and falls back to the row's `Name`, which is only the first column. Confirmed by ear with
 JAWS, NVDA and Narrator: only the first column is read, and there is no way to reach the others.
 
-`NativeListView` declines to serve that provider, so UI Automation falls back to the MSAA bridge
-and screen readers use their own `SysListView32` support again. Nothing is lost at the MSAA
-layer — role, name and per-row items are identical either way.
+Declining that provider does not help: UI Automation picks its built-in provider for common
+controls by window class name, and WinForms registers its own, so the window degrades to a bare
+`Pane` with no items at all. Measured across JAWS, NVDA and Narrator, every variation on a
+WinForms `ListView` reads only the first column.
+
+So `NativeListView` does not derive from `ListView`. It is a `Control` that creates a genuine
+`SysListView32` child window and drives it with `LVM_*` messages — the same window class
+wxWidgets creates, and the same result: every column read, on every reader.
 
 ```csharp
-// A drop-in for ListView. Nothing to configure.
-var notes = new NativeListView { View = View.Details, FullRowSelect = true };
+var notes = new NativeListView { AccessibleName = "Notes" };
+notes.Columns.Add(new NativeListViewColumn("Title", 220));
+notes.Columns.Add(new NativeListViewColumn("Modified", 130));
+notes.Items.Add(new NativeListViewItem("Shopping list", "2026-09-01 09:15"));
+notes.Items[0].Selected = true;
 ```
+
+Because it is not a `ListView`, it does not inherit that control's API. The surface it does
+carry — `Items`, `Columns`, `SelectedItems`, `FocusedItem`, `BeginUpdate` / `EndUpdate`,
+`EnsureVisible`, `GetItemAt`, an insertion mark, and events for selection, column clicks,
+activation and drag — covers what a list-driven application actually uses.
 
 There is deliberately no property to switch the behavior off. It would not be a trade-off with a
 defensible other side, and an application that wants the stock presentation already has a way to
@@ -227,8 +241,8 @@ French and Ukrainian catalogs.
 The menus are verified by ear with **JAWS**, **NVDA** and **Narrator**, and behave as expected
 on all three.
 
-`NativeListView` is verified on the same three: the stock WinForms behavior reads only the first
-column on every one of them, and the native presentation reads all columns on every one of them.
+`NativeListView` is verified on the same three. Every WinForms-based variation reads only the
+first column on all of them; the real `SysListView32` reads every column on all of them.
 Reports from other configurations are welcome.
 
 RTL rendering is implemented but has not been verified against a real RTL locale.
@@ -314,7 +328,9 @@ The library lives in `src/Oire.WinForms.NativeControls/`:
 * `AccelConverter.cs` — the `Keys` to `ACCEL` mapping.
 * `MenuTrackingScope.cs` — guards a rebuild against a popup that is currently being tracked.
 * `ListViewHeaderHitTest.cs` — `LVM_GETHEADER` / `HDM_HITTEST` for the column-header band.
-* `NativeListView.cs` — the `ListView` subclass that declines WinForms' UI Automation provider.
+* `NativeListView.cs` — the control that hosts a real `SysListView32`.
+* `NativeListViewItem.cs`, `NativeListViewColumn.cs` — its rows and columns.
+* `ListViewInterop.cs` — the `LVM_*` / `LVN_*` surface that drives it.
 * `Win32Interop.cs` — the P/Invoke surface and Win32 constants.
 
 And alongside it, `tests/Oire.WinForms.NativeControls.Tests/` — the xUnit suite, including

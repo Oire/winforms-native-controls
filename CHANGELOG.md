@@ -8,6 +8,22 @@ version is `0.x` the public API may change in a minor release.
 
 ## [Unreleased]
 
+### Changed
+
+- **Breaking.** `NativeListView` no longer derives from `ListView`. It is a `Control` that
+  creates a genuine `SysListView32` child window and drives it with `LVM_*` messages, with
+  its own `NativeListViewItem` and `NativeListViewColumn` model.
+
+  The previous approach - subclassing `ListView` and declining WinForms' UI Automation
+  provider - was measured by ear across JAWS, NVDA and Narrator and bought nothing. JAWS
+  reads every column from the stock control too, and NVDA reads only the first from all of
+  them, gaining a spurious "not selected" on every arrow. The cause is the window class:
+  WinForms registers `WindowsForms10.SysListView32.app.0…`, and both UI Automation and NVDA
+  select their list handling by class name. Declining the provider leaves a bare `Pane` with
+  no items; keeping it leaves a `Table` whose `GridPattern.GetItem` returns nothing usable.
+  No subclass can change a window's class, so the control now creates the real one - the
+  same class wxWidgets creates, which reads every column on every reader.
+
 ## [0.1.1] - 2026-09-05
 
 ### Fixed
