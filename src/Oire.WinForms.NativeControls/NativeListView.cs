@@ -200,6 +200,25 @@ public class NativeListView: Control {
     }
 
     /// <summary>
+    /// The bounds of a row in this control's client coordinates, or an empty rectangle when
+    /// there is no such row.
+    /// </summary>
+    public Rectangle GetItemBounds(int index) {
+        if (_listHandle == IntPtr.Zero || index < 0) {
+            return Rectangle.Empty;
+        }
+
+        // The message reads the wanted portion out of the rectangle it is about to fill.
+        var rect = new ListViewInterop.RECT { Left = ListViewInterop.LVIR_BOUNDS };
+        var ok = ListViewInterop.SendMessageW(
+            _listHandle, ListViewInterop.LVM_GETITEMRECT, index, ref rect);
+
+        return ok == IntPtr.Zero
+            ? Rectangle.Empty
+            : Rectangle.FromLTRB(rect.Left, rect.Top, rect.Right, rect.Bottom);
+    }
+
+    /// <summary>
     /// Draws the insertion mark before or after a row — the drop indicator for a reorder.
     /// </summary>
     public void SetInsertionMark(int index, bool after) {
@@ -290,8 +309,8 @@ public class NativeListView: Control {
 
     /// <inheritdoc />
     protected override void WndProc(ref Message m) {
-        if (m.Msg == (int)ListViewInterop.WM_NOTIFY && HandleNotification(m.LParam)) {
-            m.Result = IntPtr.Zero;
+        if (m.Msg == (int)ListViewInterop.WM_NOTIFY && HandleNotification(m.LParam, out var result)) {
+            m.Result = result;
             return;
         }
 
@@ -460,6 +479,12 @@ public class NativeListView: Control {
         } finally {
             Marshal.FreeCoTaskMem(buffer);
         }
+
+        // The auto-size widths are not meaningful at insert time; they are an instruction to
+        // the control, issued once the column exists and has something to measure.
+        if (column.InitialWidth < 0) {
+            SetColumnWidth(index, column.InitialWidth);
+        }
     }
 
     internal void RemoveColumnNative(int index) {
@@ -620,7 +645,8 @@ public class NativeListView: Control {
         ListViewInterop.SendMessageW(_listHandle, ListViewInterop.LVM_SETITEMSTATE, index, ref item);
     }
 
-    private bool HandleNotification(IntPtr lParam) {
+    private bool HandleNotification(IntPtr lParam, out IntPtr result) {
+        result = IntPtr.Zero;
         if (lParam == IntPtr.Zero) {
             return false;
         }
@@ -631,6 +657,9 @@ public class NativeListView: Control {
         }
 
         switch (header.Code) {
+            case ListViewInterop.NM_CUSTOMDRAW:
+                return HandleCustomDraw(lParam, out result);
+
             case ListViewInterop.LVN_ITEMCHANGED: {
                     var info = Marshal.PtrToStructure<ListViewInterop.NMLISTVIEW>(lParam);
                     var wasSelected = (info.OldState & ListViewInterop.LVIS_SELECTED) != 0;
@@ -676,6 +705,55 @@ public class NativeListView: Control {
 
             default:
                 return false;
+        }
+    }
+
+    /// <summary>
+    /// Paints a row in its own color. The control has no per-row color of its own, so the
+    /// only way to have one is to answer the draw notification and hand back a text color.
+    /// </summary>
+    private bool HandleCustomDraw(IntPtr lParam, out IntPtr result) {
+        result = ListViewInterop.CDRF_DODEFAULT;
+        var draw = Marshal.PtrToStructure<ListViewInterop.NMLVCUSTOMDRAW>(lParam);
+
+        switch (draw.Nmcd.DrawStage) {
+            case ListViewInterop.CDDS_PREPAINT:
+                // Nothing to say yet; ask to be called again per row.
+                result = ListViewInterop.CDRF_NOTIFYITEMDRAW;
+                return true;
+
+            case ListViewInterop.CDDS_ITEMPREPAINT: {
+                    // A row index always fits; the field is pointer-sized only because the
+                    // structure is shared with notifications that carry a real pointer.
+                    var index = (int)draw.Nmcd.ItemSpec.ToInt64();
+                    if (index < 0 || index >= _items.Count || _items[index].ForeColor is not { } color) {
+                        return true;
+                    }
+
+                    draw.ClrText = ToColorRef(color);
+                    Marshal.StructureToPtr(draw, lParam, fDeleteOld: false);
+                    result = ListViewInterop.CDRF_NEWFONT;
+                    return true;
+                }
+
+            default:
+                return false;
+        }
+    }
+
+    /// <summary><c>COLORREF</c> is 0x00BBGGRR, the reverse of the usual order.</summary>
+    private static uint ToColorRef(Color color) =>
+        (uint)(color.R | (color.G << 8) | (color.B << 16));
+
+    /// <summary>Repaints one row, after something that only changes how it looks.</summary>
+    internal void InvalidateRow(int index) {
+        if (_listHandle == IntPtr.Zero || index < 0) {
+            return;
+        }
+
+        var bounds = GetItemBounds(index);
+        if (!bounds.IsEmpty) {
+            Invalidate(bounds);
         }
     }
 

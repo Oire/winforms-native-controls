@@ -27,6 +27,9 @@ version is `0.x` the public API may change in a minor release.
   ordinary `DragEnter` / `DragOver` / `DragLeave` / `DragDrop` events, so drag and drop is
   written the same way as for any other control. WinForms registers only the container, which
   the list window covers, and OLE resolves a drop against the window under the cursor.
+- `NativeListView` supports per-row `ForeColor` through custom draw, auto-sizing column
+  widths (`AutoSizeToContent` / `AutoSizeToHeader`), and `GetItemBounds` for positioning a
+  drop indicator against a row.
 
 ## [0.1.1] - 2026-09-05
 

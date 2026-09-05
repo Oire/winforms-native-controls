@@ -117,6 +117,7 @@ internal static class ListViewInterop {
     internal const uint LVM_SETCOLUMNWIDTH = LVM_FIRST + 30;
     internal const uint LVM_SETINSERTMARK = LVM_FIRST + 166;
     internal const uint LVM_GETHEADER = LVM_FIRST + 31;
+    internal const uint LVM_GETITEMRECT = LVM_FIRST + 14;
 
     internal const uint HDM_GETITEMW = 0x1200 + 11;
     internal const uint HDM_SETITEMW = 0x1200 + 12;
@@ -157,8 +158,19 @@ internal static class ListViewInterop {
     internal const int LVN_BEGINDRAG = LVN_FIRST - 9;
     internal const int LVN_KEYDOWN = LVN_FIRST - 55;
 
+    internal const int NM_CUSTOMDRAW = -12;
     internal const int NM_DBLCLK = -3;
     internal const int NM_RETURN = -4;
+
+    // --- Custom draw ----------------------------------------------------------------------
+
+    internal const uint CDDS_PREPAINT = 0x00000001;
+    internal const uint CDDS_ITEM = 0x00010000;
+    internal const uint CDDS_ITEMPREPAINT = CDDS_ITEM | CDDS_PREPAINT;
+
+    internal const int CDRF_DODEFAULT = 0x00000000;
+    internal const int CDRF_NEWFONT = 0x00000002;
+    internal const int CDRF_NOTIFYITEMDRAW = 0x00000020;
 
     // --- Structs -------------------------------------------------------------------------
 
@@ -196,6 +208,17 @@ internal static class ListViewInterop {
         internal int CxIdeal;
     }
 
+    /// <summary><c>LVIR_BOUNDS</c>: the whole row, icon and label together.</summary>
+    internal const int LVIR_BOUNDS = 0;
+
+    [StructLayout(LayoutKind.Sequential)]
+    internal struct RECT {
+        internal int Left;
+        internal int Top;
+        internal int Right;
+        internal int Bottom;
+    }
+
     [StructLayout(LayoutKind.Sequential)]
     internal struct LVHITTESTINFO {
         internal Win32Interop.POINT Point;
@@ -221,6 +244,33 @@ internal static class ListViewInterop {
         internal IntPtr HwndFrom;
         internal IntPtr IdFrom;
         internal int Code;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    internal struct NMCUSTOMDRAW {
+        internal NMHDR Hdr;
+        internal uint DrawStage;
+        internal IntPtr Hdc;
+        internal RECT Rc;
+        internal IntPtr ItemSpec;
+        internal uint ItemState;
+        internal IntPtr ItemLParam;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    internal struct NMLVCUSTOMDRAW {
+        internal NMCUSTOMDRAW Nmcd;
+        internal uint ClrText;
+        internal uint ClrTextBk;
+        internal int SubItem;
+        internal uint ItemType;
+        internal uint ClrFace;
+        internal int IconEffect;
+        internal int IconPhase;
+        internal int PartId;
+        internal int StateId;
+        internal RECT RcText;
+        internal uint Align;
     }
 
     [StructLayout(LayoutKind.Sequential)]
@@ -312,6 +362,9 @@ internal static class ListViewInterop {
 
     [DllImport("user32.dll", CharSet = CharSet.Unicode, ExactSpelling = true)]
     internal static extern IntPtr SendMessageW(IntPtr hWnd, uint msg, IntPtr wParam, ref LVHITTESTINFO lParam);
+
+    [DllImport("user32.dll", CharSet = CharSet.Unicode, ExactSpelling = true)]
+    internal static extern IntPtr SendMessageW(IntPtr hWnd, uint msg, IntPtr wParam, ref RECT lParam);
 
     [DllImport("user32.dll", CharSet = CharSet.Unicode, ExactSpelling = true)]
     internal static extern IntPtr SendMessageW(IntPtr hWnd, uint msg, IntPtr wParam, ref LVINSERTMARK lParam);

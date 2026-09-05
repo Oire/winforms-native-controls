@@ -26,13 +26,22 @@ public enum NativeSortOrder {
 
 /// <summary>One column of a <see cref="NativeListView"/>.</summary>
 public sealed class NativeListViewColumn {
+    /// <summary>Width that fits the widest cell in the column.</summary>
+    public const int AutoSizeToContent = -1;
+
+    /// <summary>Width that fits the header text.</summary>
+    public const int AutoSizeToHeader = -2;
+
     private string _text;
     private int _width;
     private NativeSortOrder _sortOrder;
 
     /// <summary>Creates a column.</summary>
     /// <param name="text">The header text.</param>
-    /// <param name="width">The width in pixels.</param>
+    /// <param name="width">
+    /// The width in pixels, or one of <see cref="AutoSizeToContent"/> and
+    /// <see cref="AutoSizeToHeader"/>.
+    /// </param>
     /// <param name="alignment">
     /// How the column's text is aligned. The first column of a report-mode list is always
     /// left-aligned by the control itself; this is honored from the second column onward.

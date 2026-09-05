@@ -33,6 +33,18 @@ public sealed class NativeListViewItem {
         set => _cells[0] = value;
     }
 
+    /// <summary>
+    /// The row's text color, or null to use the control's. Drawn through custom draw, which
+    /// a bare list control needs in order to color one row differently from the rest.
+    /// </summary>
+    public Color? ForeColor {
+        get;
+        set {
+            field = value;
+            ListView?.InvalidateRow(Index);
+        }
+    }
+
     /// <summary>Application data. The control neither reads nor interprets it.</summary>
     public object? Tag { get; set; }
 
