@@ -610,47 +610,47 @@ public class NativeListView: Control {
 
         switch (header.Code) {
             case ListViewInterop.LVN_ITEMCHANGED: {
-                var info = Marshal.PtrToStructure<ListViewInterop.NMLISTVIEW>(lParam);
-                var wasSelected = (info.OldState & ListViewInterop.LVIS_SELECTED) != 0;
-                var isSelected = (info.NewState & ListViewInterop.LVIS_SELECTED) != 0;
-                if (wasSelected != isSelected) {
-                    var focused = FocusedItem?.Index ?? -1;
-                    if (focused != _lastSelectedIndex || !isSelected) {
-                        _lastSelectedIndex = focused;
+                    var info = Marshal.PtrToStructure<ListViewInterop.NMLISTVIEW>(lParam);
+                    var wasSelected = (info.OldState & ListViewInterop.LVIS_SELECTED) != 0;
+                    var isSelected = (info.NewState & ListViewInterop.LVIS_SELECTED) != 0;
+                    if (wasSelected != isSelected) {
+                        var focused = FocusedItem?.Index ?? -1;
+                        if (focused != _lastSelectedIndex || !isSelected) {
+                            _lastSelectedIndex = focused;
+                        }
+
+                        SelectedIndexChanged?.Invoke(this, EventArgs.Empty);
                     }
 
-                    SelectedIndexChanged?.Invoke(this, EventArgs.Empty);
+                    return false;
                 }
-
-                return false;
-            }
 
             case ListViewInterop.LVN_COLUMNCLICK: {
-                var info = Marshal.PtrToStructure<ListViewInterop.NMLISTVIEW>(lParam);
-                if (info.SubItem >= 0 && info.SubItem < _columns.Count) {
-                    ColumnClick?.Invoke(this, new NativeColumnClickEventArgs(_columns[info.SubItem]));
-                }
+                    var info = Marshal.PtrToStructure<ListViewInterop.NMLISTVIEW>(lParam);
+                    if (info.SubItem >= 0 && info.SubItem < _columns.Count) {
+                        ColumnClick?.Invoke(this, new NativeColumnClickEventArgs(_columns[info.SubItem]));
+                    }
 
-                return false;
-            }
+                    return false;
+                }
 
             case ListViewInterop.LVN_BEGINDRAG: {
-                var info = Marshal.PtrToStructure<ListViewInterop.NMLISTVIEW>(lParam);
-                if (info.Item >= 0 && info.Item < _items.Count) {
-                    ItemDrag?.Invoke(this, new NativeListViewItemEventArgs(_items[info.Item]));
-                }
+                    var info = Marshal.PtrToStructure<ListViewInterop.NMLISTVIEW>(lParam);
+                    if (info.Item >= 0 && info.Item < _items.Count) {
+                        ItemDrag?.Invoke(this, new NativeListViewItemEventArgs(_items[info.Item]));
+                    }
 
-                return false;
-            }
+                    return false;
+                }
 
             case ListViewInterop.NM_DBLCLK:
             case ListViewInterop.NM_RETURN: {
-                if (FocusedItem is { } item) {
-                    ItemActivate?.Invoke(this, new NativeListViewItemEventArgs(item));
-                }
+                    if (FocusedItem is { } item) {
+                        ItemActivate?.Invoke(this, new NativeListViewItemEventArgs(item));
+                    }
 
-                return false;
-            }
+                    return false;
+                }
 
             default:
                 return false;
