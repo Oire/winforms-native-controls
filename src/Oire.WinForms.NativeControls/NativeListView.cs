@@ -43,6 +43,7 @@ public class NativeListView: Control {
     private ChildMessageFilter? _childSubclass;
     private ChildDropTarget? _dropTarget;
     private bool _multiSelect;
+    private BorderStyle _borderStyle = BorderStyle.Fixed3D;
     private int _lastSelectedIndex = -1;
 
     /// <summary>Creates an empty list.</summary>
@@ -123,6 +124,28 @@ public class NativeListView: Control {
                 _listHandle, ListViewInterop.LVM_GETNEXTITEM, -1, (IntPtr)ListViewInterop.LVNI_FOCUSED);
 
             return index >= 0 && index < _items.Count ? _items[index] : null;
+        }
+    }
+
+    /// <summary>
+    /// The border drawn around the list. Defaults to <see cref="BorderStyle.Fixed3D"/>, which
+    /// is what a WinForms <c>ListView</c> and <c>TreeView</c> both use - a list without one
+    /// sits flush against its panel while its neighbors are inset, and reads as misaligned.
+    /// </summary>
+    [DefaultValue(BorderStyle.Fixed3D)]
+    public BorderStyle BorderStyle {
+        get => _borderStyle;
+        set {
+            if (_borderStyle == value) {
+                return;
+            }
+
+            _borderStyle = value;
+
+            // Part of the creation style for a common control.
+            if (IsHandleCreated) {
+                RecreateListWindow();
+            }
         }
     }
 
@@ -280,6 +303,42 @@ public class NativeListView: Control {
     /// <summary>Removes the insertion mark.</summary>
     public void ClearInsertionMark() => SetInsertionMark(-1, after: false);
 
+    /// <summary>Rows a list asks room for before anything has told it how big to be.</summary>
+    private const int DefaultVisibleRows = 5;
+
+    /// <summary>Characters of width a list asks for, on the same basis.</summary>
+    private const int DefaultVisibleCharacters = 20;
+
+    /// <summary>
+    /// The size the control asks for when nothing else decides, measured from the current
+    /// font rather than fixed in pixels — so it follows DPI and the font the user chose,
+    /// which a constant cannot.
+    /// </summary>
+    /// <remarks>
+    /// This is not cosmetic. A container that measures its children — a
+    /// <c>TableLayoutPanel</c> with an auto-sized row, say — divides a row-spanning
+    /// neighbor's height between the rows according to what each row's own children ask for.
+    /// A control that asks for nothing gives its whole share away, and the auto-sized row
+    /// grows by exactly that much and pushes the list down the panel.
+    /// </remarks>
+    protected override Size DefaultSize {
+        get {
+            var row = Math.Max(FontHeight, 1);
+            var sample = new string('0', DefaultVisibleCharacters);
+
+            // A header and a handful of rows tall; a sample line wide.
+            return new Size(
+                TextRenderer.MeasureText(sample, Font).Width,
+                row * (DefaultVisibleRows + 1));
+        }
+    }
+
+    /// <inheritdoc />
+    public override Size GetPreferredSize(Size proposedSize) {
+        var preferred = base.GetPreferredSize(proposedSize);
+        return preferred.IsEmpty ? DefaultSize : preferred;
+    }
+
     /// <inheritdoc />
     protected override void OnHandleCreated(EventArgs e) {
         base.OnHandleCreated(e);
@@ -305,8 +364,9 @@ public class NativeListView: Control {
         base.OnGotFocus(e);
 
         // The container is the tab stop; the list is what the user actually works in, and what
-        // a screen reader must land on.
-        if (_listHandle != IntPtr.Zero) {
+        // a screen reader must land on. Only move focus if it is not already there — setting it
+        // again still raises the events a reader reacts to.
+        if (_listHandle != IntPtr.Zero && ListViewInterop.GetFocus() != _listHandle) {
             ListViewInterop.SetFocus(_listHandle);
         }
     }
@@ -557,8 +617,15 @@ public class NativeListView: Control {
             style |= ListViewInterop.LVS_SINGLESEL;
         }
 
+        if (_borderStyle == BorderStyle.FixedSingle) {
+            style |= ListViewInterop.WS_BORDER;
+        }
+
         // WS_EX_LAYOUTRTL is the only way a common control mirrors, and it is fixed at creation.
         var exStyle = RightToLeft == RightToLeft.Yes ? ListViewInterop.WS_EX_LAYOUTRTL : 0;
+        if (_borderStyle == BorderStyle.Fixed3D) {
+            exStyle |= ListViewInterop.WS_EX_CLIENTEDGE;
+        }
 
         _listHandle = ListViewInterop.CreateWindowExW(
             exStyle, ListViewInterop.WindowClass, null, style,
@@ -573,8 +640,16 @@ public class NativeListView: Control {
 
         ListViewInterop.SendMessageW(
             _listHandle, ListViewInterop.LVM_SETEXTENDEDLISTVIEWSTYLE, IntPtr.Zero,
+            // LABELTIP shows the full text of a row too narrow to display it, on hover. That is
+            // for the sighted reader of a list whose columns rarely fit.
             (IntPtr)(ListViewInterop.LVS_EX_FULLROWSELECT | ListViewInterop.LVS_EX_DOUBLEBUFFER |
                 ListViewInterop.LVS_EX_LABELTIP));
+
+        // Without this the control keeps its pre-Vista appearance: no hover highlight, a
+        // header that looks like another row, and the older row metrics. It is what a
+        // WinForms ListView does for itself, and the reason one looks current.
+        // A failure only means the control keeps the classic look; it is not worth failing over.
+        _ = ListViewInterop.SetWindowTheme(_listHandle, "Explorer", null);
 
         ApplyFont();
         ApplyAccessibleName();
@@ -700,7 +775,10 @@ public class NativeListView: Control {
 
         switch (header.Code) {
             case ListViewInterop.NM_CUSTOMDRAW:
-                return HandleCustomDraw(lParam, out result);
+                // Only the list draws rows. The header sends the same notification code with
+                // the smaller NMCUSTOMDRAW behind it, and writing a row-shaped structure back
+                // over that buffer would run past the end of memory Windows owns.
+                return header.HwndFrom == _listHandle && HandleCustomDraw(lParam, out result);
 
             case ListViewInterop.LVN_ITEMCHANGED: {
                     var info = Marshal.PtrToStructure<ListViewInterop.NMLISTVIEW>(lParam);
@@ -760,8 +838,12 @@ public class NativeListView: Control {
 
         switch (draw.Nmcd.DrawStage) {
             case ListViewInterop.CDDS_PREPAINT:
-                // Nothing to say yet; ask to be called again per row.
-                result = ListViewInterop.CDRF_NOTIFYITEMDRAW;
+                // Ask for per-row callbacks only when some row has something to say. Otherwise
+                // every row of every repaint would cross into managed code to answer "nothing".
+                result = _items.Exists(item => item.ForeColor is not null)
+                    ? ListViewInterop.CDRF_NOTIFYITEMDRAW
+                    : ListViewInterop.CDRF_DODEFAULT;
+
                 return true;
 
             case ListViewInterop.CDDS_ITEMPREPAINT: {
@@ -846,7 +928,7 @@ public class NativeListView: Control {
     private sealed class ChildDropTarget(NativeListView owner): ListViewInterop.IOleDropTarget {
         private IDataObject? _data;
 
-        public int OleDragEnter(IntPtr dataObject, int keyState, ListViewInterop.POINTL point, ref int effect) {
+        public int OleDragEnter(object dataObject, int keyState, ListViewInterop.POINTL point, ref int effect) {
             _data = Wrap(dataObject);
             var args = Build(keyState, point, effect);
             owner.OnDragEnter(args);
@@ -867,7 +949,7 @@ public class NativeListView: Control {
             return 0;
         }
 
-        public int OleDrop(IntPtr dataObject, int keyState, ListViewInterop.POINTL point, ref int effect) {
+        public int OleDrop(object dataObject, int keyState, ListViewInterop.POINTL point, ref int effect) {
             _data = Wrap(dataObject) ?? _data;
             var args = Build(keyState, point, effect);
             owner.OnDragDrop(args);
@@ -883,14 +965,22 @@ public class NativeListView: Control {
         private DragEventArgs Build(int keyState, ListViewInterop.POINTL point, int effect) =>
             new(_data!, keyState, point.X, point.Y, (DragDropEffects)effect, DragDropEffects.None);
 
-        private static IDataObject? Wrap(IntPtr unknown) {
-            if (unknown == IntPtr.Zero) {
-                return null;
-            }
-
-            var value = Marshal.GetObjectForIUnknown(unknown);
-            return value as IDataObject ?? new DataObject(value);
-        }
+        /// <summary>
+        /// Recovers the data object the drag source passed in.
+        /// </summary>
+        /// <remarks>
+        /// Letting the runtime marshal this as an interface is what makes an in-process drag
+        /// work: the object that comes back is the very one the source handed to
+        /// <c>DoDragDrop</c>, so a payload of any type is simply still there. Taking the raw
+        /// pointer and wrapping it instead produces a data object that advertises the right
+        /// format and yields nothing from it, because pulling a custom type back out of a
+        /// wrapper needs the deserialization .NET no longer performs.
+        /// </remarks>
+        private static IDataObject? Wrap(object? value) => value switch {
+            null => null,
+            IDataObject managed => managed,
+            _ => new DataObject(value),
+        };
     }
 
     /// <summary>

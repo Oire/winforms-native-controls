@@ -147,9 +147,44 @@ public class NativeListViewTests {
         });
     }
 
+    [Fact]
+    public void AsksForARealSizeSoLayoutPanelsCanMeasureIt() {
+        StaRunner.Run(() => {
+            using var list = Build();
+
+            // A control that asks for nothing is not merely unopinionated: a TableLayoutPanel
+            // divides a row-spanning neighbor's height by what each row asks for, so zero here
+            // hands the whole share to an auto-sized row, which grows and pushes the list down.
+            var preferred = list.GetPreferredSize(new Size(900, 900));
+
+            preferred.Width.Should().BeGreaterThan(0);
+            preferred.Height.Should().BeGreaterThan(0);
+        });
+    }
+
+    [Fact]
+    public void DerivesThatSizeFromTheFontRatherThanFixingItInPixels() {
+        StaRunner.Run(() => {
+            using var list = Build();
+
+            list.Font = new Font(list.Font.FontFamily, 8F);
+            var smaller = list.DefaultSizeForTests;
+
+            list.Font = new Font(list.Font.FontFamily, 20F);
+            var bigger = list.DefaultSizeForTests;
+
+            // A constant would be right at exactly one scaling and one font size.
+            bigger.Height.Should().BeGreaterThan(smaller.Height);
+            bigger.Width.Should().BeGreaterThan(smaller.Width);
+        });
+    }
+
     /// <summary>Exposes the protected recreation so a test can force one deliberately.</summary>
     private sealed class RecreatableListView: NativeListView {
         internal void ForceRecreateHandle() => RecreateHandle();
+
+        /// <summary>The font-derived default, which is otherwise protected.</summary>
+        internal Size DefaultSizeForTests => DefaultSize;
     }
 
     private static RecreatableListView Build() {

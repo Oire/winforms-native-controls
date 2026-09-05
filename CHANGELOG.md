@@ -30,6 +30,22 @@ version is `0.x` the public API may change in a minor release.
 - `NativeListView` supports per-row `ForeColor` through custom draw, auto-sizing column
   widths (`AutoSizeToContent` / `AutoSizeToHeader`), and `GetItemBounds` for positioning a
   drop indicator against a row.
+- `NativeListView` carries a `BorderStyle`, defaulting to `Fixed3D` as a WinForms `ListView`
+  and `TreeView` both do; without one the list sat flush against its panel while its
+  neighbors were inset, and its header stopped reading as a header.
+- `NativeListView` opts into the Explorer visual style, which is what gives a list its hover
+  highlight, current selection styling and modern row metrics.
+- `NativeListView` reports a preferred size derived from its font. A control that reports
+  none is not merely unopinionated: a `TableLayoutPanel` divides a row-spanning neighbor's
+  height by what each row asks for, so zero hands the whole share to an auto-sized row,
+  which grows and pushes the list down the panel.
+
+### Known limitations
+
+- With a screen reader running *and* the mouse driving the same window, the window can stop
+  responding for tens of seconds at a time. Measured: the application's own thread is idle
+  in `GetMessage` throughout, while the window is flooded with `WM_GETOBJECT` — the reader
+  hit-testing under the pointer. It does not reproduce with the reader closed.
 
 ## [0.1.1] - 2026-09-05
 

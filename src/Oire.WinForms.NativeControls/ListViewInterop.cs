@@ -37,6 +37,16 @@ internal static class ListViewInterop {
     [DllImport("user32.dll", CharSet = CharSet.Unicode, ExactSpelling = true)]
     internal static extern IntPtr GetFocus();
 
+    /// <summary>
+    /// Opts a common control into a named visual style. "Explorer" is what gives a list its
+    /// modern appearance: hover highlight, the current selection styling, a header that reads
+    /// as a header, and the row metrics that go with them.
+    /// </summary>
+    [DllImport("uxtheme.dll", CharSet = CharSet.Unicode, ExactSpelling = true)]
+    internal static extern int SetWindowTheme(
+        IntPtr hWnd, [MarshalAs(UnmanagedType.LPWStr)] string? subAppName,
+        [MarshalAs(UnmanagedType.LPWStr)] string? subIdList);
+
     [DllImport("comctl32.dll", CharSet = CharSet.Unicode, ExactSpelling = true)]
     [return: MarshalAs(UnmanagedType.Bool)]
     internal static extern bool InitCommonControlsEx(ref INITCOMMONCONTROLSEX icc);
@@ -337,7 +347,9 @@ internal static class ListViewInterop {
     [InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
     internal interface IOleDropTarget {
         [PreserveSig]
-        int OleDragEnter(IntPtr dataObject, int keyState, POINTL point, ref int effect);
+        int OleDragEnter(
+            [MarshalAs(UnmanagedType.Interface)] object dataObject, int keyState,
+            POINTL point, ref int effect);
 
         [PreserveSig]
         int OleDragOver(int keyState, POINTL point, ref int effect);
@@ -346,7 +358,9 @@ internal static class ListViewInterop {
         int OleDragLeave();
 
         [PreserveSig]
-        int OleDrop(IntPtr dataObject, int keyState, POINTL point, ref int effect);
+        int OleDrop(
+            [MarshalAs(UnmanagedType.Interface)] object dataObject, int keyState,
+            POINTL point, ref int effect);
     }
 
     // --- Message senders -----------------------------------------------------------------
