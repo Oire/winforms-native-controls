@@ -26,6 +26,7 @@ public sealed class NativeMenuSpec {
     /// accelerator text without registering the chord in the accelerator table.
     /// </summary>
     public NativeMenuSpec Add(string text, string? shortcut, Keys? shortcutKeys, Action onClick) {
+        ArgumentNullException.ThrowIfNull(text);
         ArgumentNullException.ThrowIfNull(onClick);
         _items.Add(new NativeMenuItemSpec {
             Text = text,
@@ -41,6 +42,7 @@ public sealed class NativeMenuSpec {
     /// (File, Edit, ...); nested inside another <see cref="AddMenu"/> it becomes a submenu.
     /// </summary>
     public NativeMenuSpec AddMenu(string text, Action<NativeMenuSpec> build) {
+        ArgumentNullException.ThrowIfNull(text);
         ArgumentNullException.ThrowIfNull(build);
         var child = new NativeMenuSpec();
         build(child);
@@ -63,6 +65,7 @@ public sealed class NativeMenuSpec {
 
     /// <summary>Adds an independent on/off toggle, drawn with a checkmark when checked.</summary>
     public NativeMenuSpec AddCheckable(string text, bool isChecked, string? shortcut, Keys? shortcutKeys, Action onClick) {
+        ArgumentNullException.ThrowIfNull(text);
         ArgumentNullException.ThrowIfNull(onClick);
         _items.Add(new NativeMenuItemSpec {
             Text = text,
@@ -87,6 +90,7 @@ public sealed class NativeMenuSpec {
     /// All items sharing <paramref name="radioGroup"/> must be siblings in this same menu.
     /// </summary>
     public NativeMenuSpec AddRadio(string text, string radioGroup, bool isChecked, string? shortcut, Keys? shortcutKeys, Action onClick) {
+        ArgumentNullException.ThrowIfNull(text);
         ArgumentException.ThrowIfNullOrWhiteSpace(radioGroup);
         ArgumentNullException.ThrowIfNull(onClick);
         _items.Add(new NativeMenuItemSpec {

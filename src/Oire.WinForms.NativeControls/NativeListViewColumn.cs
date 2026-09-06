@@ -35,6 +35,7 @@ public sealed class NativeListViewColumn {
     private string _text;
     private int _width;
     private NativeSortOrder _sortOrder;
+    private NativeColumnAlignment _alignment;
 
     /// <summary>Creates a column.</summary>
     /// <param name="text">The header text.</param>
@@ -49,7 +50,7 @@ public sealed class NativeListViewColumn {
     public NativeListViewColumn(string text, int width, NativeColumnAlignment alignment = NativeColumnAlignment.Left) {
         _text = text ?? String.Empty;
         _width = width;
-        Alignment = alignment;
+        _alignment = alignment;
     }
 
     /// <summary>The header text.</summary>
@@ -70,8 +71,22 @@ public sealed class NativeListViewColumn {
         }
     }
 
-    /// <summary>How the column's text is aligned.</summary>
-    public NativeColumnAlignment Alignment { get; }
+    /// <summary>
+    /// How the column's text is aligned. Assigning it updates the control if the column is in
+    /// one.
+    /// </summary>
+    /// <remarks>
+    /// The first column of a report-mode list is always left-aligned by the control itself, so
+    /// assigning anything else to column zero is stored and reported back but not drawn. That
+    /// is a Win32 rule, not a choice made here.
+    /// </remarks>
+    public NativeColumnAlignment Alignment {
+        get => _alignment;
+        set {
+            _alignment = value;
+            ListView?.UpdateColumnAlignment(Index, value);
+        }
+    }
 
     /// <summary>
     /// The sort arrow drawn in this column's header. Purely an indicator: the control does not

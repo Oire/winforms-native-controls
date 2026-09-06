@@ -210,6 +210,11 @@ public sealed class NativeContextMenu: IDisposable {
     /// </summary>
     private static Point KeyboardAnchorFor(Control control) {
         switch (control) {
+            // Before the WinForms ListView case: NativeListView is a Control, not a ListView,
+            // so it would otherwise fall through to the corner of the control.
+            case NativeListView { FocusedItem: { } focused } nativeList
+                when nativeList.GetItemBounds(focused.Index) is { IsEmpty: false } bounds:
+                return nativeList.PointToScreen(new Point(bounds.Left, bounds.Bottom));
             case ListView { FocusedItem: { } item } listView:
                 return listView.PointToScreen(new Point(item.Bounds.Left, item.Bounds.Bottom));
             case TreeView { SelectedNode: { } node } treeView:

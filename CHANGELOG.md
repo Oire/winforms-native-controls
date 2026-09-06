@@ -3,12 +3,58 @@
 All notable changes to this project are documented here.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this
-project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html). While the
-version is `0.x` the public API may change in a minor release.
+project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html). From 1.0
+onward the public API is stable: additions come in a minor release and breaking changes only
+in a major one.
 
 ## [Unreleased]
 
+## [1.0.0] - 2026-09-06
+
+First stable release. The public API is settled; see the versioning note above.
+
+### Fixed
+
+- Menu accelerators now decide whether a keystroke is theirs by asking whether the message is
+  aimed at the owning form or anything inside it, rather than by consulting `Form.ActiveForm`.
+  That property answers a different question and got this one wrong in two shipping cases: for
+  an MDI child it names the MDI *parent*, so a child's own menu bar never fired; and it is null
+  whenever the active window is not a WinForms `Form`, which is the normal state of a mixed WPF
+  or native host. Modal dialogs are still excluded, because a dialog is owned by the form but is
+  not a child of it. This removes the last of the limitations previously tracked for 1.0.
+- A keyboard-invoked `NativeContextMenu` now anchors at the focused row of a `NativeListView`,
+  as it already did for a WinForms `ListView`, `TreeView` and `ListBox`. `NativeListView` is a
+  `Control` rather than a `ListView`, so it had been falling through to the control's top-left
+  corner - the library's own list control was the one case its context menus did not know about.
+- Clearing `NativeListView.AccessibleName` now reaches the list window. The name was only ever
+  pushed when non-empty, so a reader went on announcing a name the application had taken away.
+- `NativeMenuSpec` rejects a null item label at the builder call. It previously survived until
+  validation walked the tree for mnemonics, and the exception then named a parameter of a
+  formatter the caller never called.
+
+### Added
+
+- `NativeListView.BackColor` and `ForeColor` are honored. The list window paints itself, so both
+  are pushed across with `LVM_SETBKCOLOR`, `LVM_SETTEXTBKCOLOR` and `LVM_SETTEXTCOLOR`; they
+  previously looked settable and did nothing. Both default to the window colors rather than
+  inheriting the parent's dialog gray, matching what a WinForms `ListView` does.
+- `NativeListView` follows the system theme, which is a consequence of the above rather than a
+  separate feature. Left alone the colors resolve through `SystemColors`, which WinForms remaps
+  for the application's color mode, so the list now goes dark with the rest of a dark-mode
+  application and honors a high-contrast theme. Previously nothing was pushed at all and the
+  control fell back on the raw `GetSysColor(COLOR_WINDOW)`, which stays white however the
+  application is themed - a white list in a dark window. The visual style is chosen to match
+  (`DarkMode_Explorer` rather than `Explorer`), without which the header, the scroll bars and
+  the hover highlight stay light on an otherwise dark list, and both are re-applied on
+  `WM_SYSCOLORCHANGE` so a theme switched while the application is running is followed.
+- `NativeListViewColumn.Alignment` is settable rather than constructor-only, which is what
+  every other column property already was. Assigning it preserves the sort arrow, which shares
+  the same Win32 format word and a plain write would have cleared. Column zero is still drawn
+  left-aligned whatever it is set to - that is a rule of the report-mode control itself.
+- Package icon and package title.
+
 ### Changed
+
 
 - **Breaking.** `NativeListView` no longer derives from `ListView`. It is a `Control` that
   creates a genuine `SysListView32` child window and drives it with `LVM_*` messages, with
@@ -84,6 +130,7 @@ First release.
   `GridPattern.GetItem(row, column)` returns unusable elements, which breaks cell navigation on
   JAWS, NVDA and Narrator alike.
 
-[Unreleased]: https://github.com/Oire/winforms-native-controls/compare/v0.1.1...HEAD
+[Unreleased]: https://github.com/Oire/winforms-native-controls/compare/v1.0.0...HEAD
+[1.0.0]: https://github.com/Oire/winforms-native-controls/releases/tag/v1.0.0
 [0.1.1]: https://github.com/Oire/winforms-native-controls/releases/tag/v0.1.1
 [0.1.0]: https://github.com/Oire/winforms-native-controls/releases/tag/v0.1.0

@@ -120,6 +120,15 @@ internal static class Win32Interop {
     [DllImport("user32.dll", CharSet = CharSet.Unicode, ExactSpelling = true)]
     internal static extern IntPtr SendMessageW(IntPtr hWnd, uint msg, IntPtr wParam, ref HDHITTESTINFO lParam);
 
+    /// <summary>
+    /// Whether <paramref name="hWndChild"/> is <paramref name="hWndParent"/> or sits anywhere
+    /// beneath it. Walks the whole parent chain, so a control nested any number of containers
+    /// deep still answers true. Owned top-level windows — a dialog, say — are not children.
+    /// </summary>
+    [DllImport("user32.dll", ExactSpelling = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    internal static extern bool IsChild(IntPtr hWndParent, IntPtr hWndChild);
+
     // --- Accessibility ------------------------------------------------------------------
 
     [DllImport("user32.dll", CharSet = CharSet.Unicode, ExactSpelling = true)]

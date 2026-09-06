@@ -168,4 +168,25 @@ public class NativeMenuSpecTests {
 
         act.Should().Throw<ArgumentNullException>();
     }
+
+    /// <summary>
+    /// A null label used to survive until validation walked the tree for mnemonics, and the
+    /// exception then named a parameter of a formatter the caller never called. The builder
+    /// is where the caller is, so the builder is where it throws.
+    /// </summary>
+    [Theory]
+    [MemberData(nameof(NullTextBuilders))]
+    public void NullText_ThrowsAtTheBuilder(Action build) {
+        var act = () => build();
+
+        act.Should().Throw<ArgumentNullException>().WithParameterName("text");
+    }
+
+    public static TheoryData<Action> NullTextBuilders => new() {
+        () => new NativeMenuSpec().Add(null!, NoOp),
+        () => new NativeMenuSpec().Add(null!, "Ctrl+N", Keys.Control | Keys.N, NoOp),
+        () => new NativeMenuSpec().AddMenu(null!, _ => { }),
+        () => new NativeMenuSpec().AddCheckable(null!, isChecked: false, NoOp),
+        () => new NativeMenuSpec().AddRadio(null!, "group", isChecked: false, NoOp),
+    };
 }

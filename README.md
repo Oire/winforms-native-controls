@@ -3,7 +3,7 @@
 [![NuGet version](https://img.shields.io/nuget/v/Oire.WinForms.NativeControls?logo=nuget&label=NuGet)](https://www.nuget.org/packages/Oire.WinForms.NativeControls)
 [![NuGet downloads](https://img.shields.io/nuget/dt/Oire.WinForms.NativeControls?logo=nuget&label=downloads)](https://www.nuget.org/packages/Oire.WinForms.NativeControls)
 [![Build status](https://github.com/Oire/winforms-native-controls/actions/workflows/dotnet.yml/badge.svg?branch=master)](https://github.com/Oire/winforms-native-controls/actions/workflows/dotnet.yml)
-[![License: Apache 2.0](https://img.shields.io/badge/license-Apache%202.0-blue)](LICENSE)
+[![License: Apache 2.0](https://img.shields.io/badge/license-Apache%202.0-blue)](https://github.com/Oire/winforms-native-controls/blob/master/LICENSE)
 
 Win32-native replacements for the WinForms controls that screen readers handle poorly — menus and list views today.
 
@@ -40,6 +40,9 @@ so screen readers read one column out of four. `NativeListView` creates the real
 * **A list that reads all of its columns again.** `NativeListView` is a genuine `SysListView32`
   window rather than a WinForms one, which is what it takes for screen readers to recognize it
   and read past the first column.
+* **Themes followed, including high contrast.** The list takes its colors and its visual style
+  from the application's color mode, so it goes dark with the rest of the application and
+  honors a high-contrast theme — including when the user switches while it is running.
 * **Packaged properly.** XML documentation for IntelliSense, deterministic builds, and
   SourceLink-enabled `snupkg` symbols so you can step straight into the library source.
 
@@ -146,6 +149,9 @@ were written only after the stock controls had been measured and found wanting.
 | `AccelConverter` | `Keys` → `ACCEL` mapping |
 | `ListViewHeaderHitTest` | Whether a screen point is on a `ListView`'s column-header band |
 | `NativeListView` | A real `SysListView32`, announced as a list and read column by column |
+| `NativeListViewItem` / `NativeListViewColumn` | Its rows and columns — cell texts, per-row color and tag; header text, width, alignment and sort arrow |
+| `NativeColumnAlignment` / `NativeSortOrder` | Column text alignment, and which way the header arrow points |
+| `NativeListViewItemEventArgs` / `NativeColumnClickEventArgs` | What the list's events carry |
 
 ## Things it does on purpose
 
@@ -205,9 +211,21 @@ notes.Items[0].Selected = true;
 ```
 
 Because it is not a `ListView`, it does not inherit that control's API. The surface it does
-carry — `Items`, `Columns`, `SelectedItems`, `FocusedItem`, `BeginUpdate` / `EndUpdate`,
-`EnsureVisible`, `GetItemAt`, an insertion mark, and events for selection, column clicks,
-activation and drag — covers what a list-driven application actually uses.
+carry covers what a list-driven application actually uses:
+
+* **Content** — `Items`, `Columns`, and per-column `Width` with the `AutoSizeToContent` /
+  `AutoSizeToHeader` constants for widths measured rather than guessed.
+* **Selection** — `SelectedItems`, `FocusedItem`, `MultiSelect`, `ClearSelection`,
+  `EnsureVisible`, and `Selected` / `Focused` on a row, both settable before the control has
+  a window so a list populated during form construction comes up on the right row.
+* **Appearance** — `BackColor` and `ForeColor`, per-row `ForeColor`, `BorderStyle`, and a
+  column's `Alignment` and `SortOrder` arrow, both settable at any time. Left alone, the colors follow the system
+  theme: light, dark and high contrast, and a switch between them while the application is
+  running.
+* **Hit testing and layout** — `GetItemAt`, `GetItemBounds`, `SetInsertionMark` /
+  `ClearInsertionMark` for a drop indicator, and `BeginUpdate` / `EndUpdate` for bulk changes.
+* **Events** — `SelectedIndexChanged`, `ColumnClick`, `ItemActivate`, `ItemDrag`, and the
+  ordinary `DragEnter` / `DragOver` / `DragLeave` / `DragDrop` for drops on the list itself.
 
 There is deliberately no property to switch the behavior off. It would not be a trade-off with a
 defensible other side, and an application that wants the stock presentation already has a way to
@@ -314,6 +332,7 @@ At the repository root:
 * `CHANGELOG.md` — the release history, in [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) format.
 * `GitVersion.yml` — versioning configuration; the package version comes from git tags, not from the project file.
 * `global.json` — the pinned SDK version.
+* `icon.png` — the package icon shown on nuget.org.
 
 The library lives in `src/Oire.WinForms.NativeControls/`:
 
@@ -339,20 +358,23 @@ because xUnit's own workers are MTA.
 
 ## Status
 
-**0.x — the public API is not settled.** It has one production consumer so far; the shape
-should survive contact with a second application before anything is called 1.0. Expect the
-occasional breaking change until then, and pin a version if that matters to you.
+**1.0 — the public API is stable.** The shape has been through a production application and
+the corners that needed changing have been changed. From here the project follows semantic
+versioning: additions in a minor release, breaking changes only in a major one. From the
+first release after this one that is mechanically enforced rather than merely promised: each
+package is compared against the last published stable release, and a break in the public
+surface fails the build instead of reaching nuget.org.
 
-Known limitations tracked for 1.0:
+Deliberately not implemented. These are scope decisions rather than a to-do list:
 
-- The accelerator message filter gates on `Form.ActiveForm`, which is correct only when every
-  secondary window is a `ShowDialog` modal. Applications with modeless child windows need the
-  `Activated` / `Deactivate` model instead.
-- No menu item images.
-- No `WM_MENUSELECT` help text.
-- No dynamic item insert/remove — rebuild the spec instead.
-- No native tray menu. `NotifyIcon` exposes no hook for the keyboard-invoked tray menu, so that
-  one genuinely needs its own design.
+- **No menu item images.** A native menu can carry bitmaps, but they are decoration a screen
+  reader does not read, and supporting them well means owner-drawing.
+- **No `WM_MENUSELECT` help text.** The status-bar hint pattern it serves belongs with the
+  native status bar, which is not written yet.
+- **No dynamic item insert/remove.** Rebuild the spec instead — rebuilding is cheap and is
+  already the expected path for language changes and per-invocation context menus.
+- **No native tray menu.** `NotifyIcon` exposes no hook for the keyboard-invoked tray menu, so
+  that one genuinely needs its own design.
 
 Intended next members, same disease and same cure: a native toolbar and a native status bar.
 

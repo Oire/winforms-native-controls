@@ -96,10 +96,15 @@ jobs:
       run: |
         $tag = $env:GITHUB_REF_NAME
         $assets = Get-ChildItem artifacts/*.nupkg, artifacts/*.snupkg -ErrorAction SilentlyContinue | ForEach-Object { $_.FullName }
+        # Release title is "Version X.Y.Z": the tag's own `v` prefix is a git convention, not a
+        # heading. GitVersion's tag-prefix is '[vV]', so strip either spelling.
+        $version = $tag -replace '^[vV]', ''
         # Build one flat argument array and let PowerShell expand it into separate args for the native
         # command. Do NOT use `@` splatting on a native command: it splits a single string path into
         # its characters (a .nupkg path became "D", ":", "\", ... and gh choked on "D").
-        $ghArgs = @($tag) + $assets + @('--verify-tag', '--generate-notes', '--title', $tag)
-        # Tags carrying a pre-release suffix (e.g. v1.2.3-beta.1) are marked as pre-releases on GitHub.
-        if ($tag -match '-') { $ghArgs += '--prerelease' }
+        $ghArgs = @($tag) + $assets + @('--verify-tag', '--generate-notes', '--title', "Version $version")
+        # Mark as a GitHub pre-release when either holds:
+        #   - the tag carries a pre-release suffix (e.g. v1.2.3-beta.1);
+        #   - the major version is 0, which under SemVer means the public API is still unstable.
+        if ($version -match '-' -or $version -match '^0\.') { $ghArgs += '--prerelease' }
         gh release create $ghArgs

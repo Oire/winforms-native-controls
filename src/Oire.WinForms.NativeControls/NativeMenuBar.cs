@@ -287,12 +287,22 @@ public sealed class NativeMenuBar: IDisposable {
     /// menu shortcut fires from any focus inside the form — including while the menu is open.
     /// </summary>
     /// <remarks>
-    /// The <see cref="Form.ActiveForm"/> check keeps accelerators from firing while another
-    /// form is active. That is correct as long as every secondary window is a
-    /// <c>ShowDialog</c> modal owned by the menu's form, because <c>ActiveForm</c> then flips
-    /// to the dialog for its lifetime and back afterwards. An application with modeless child
-    /// windows needs an <c>Activated</c> / <c>Deactivate</c> subscription instead; that is a
-    /// known limitation, tracked for 1.0.
+    /// <para>
+    /// A message filter is application-wide, so the filter has to decide for itself whether a
+    /// given keystroke belongs to its form. It asks the only question that actually settles
+    /// that: is the window the message is aimed at this form, or something inside it? Every
+    /// control on the form — including the <c>SysListView32</c> that
+    /// <see cref="NativeListView"/> creates, which is not a WinForms control at all — is a
+    /// descendant of the form's HWND, and nothing outside the form is.
+    /// </para>
+    /// <para>
+    /// This deliberately does not consult <see cref="Form.ActiveForm"/>. That property answers
+    /// a different question and gets this one wrong in two shipping cases: for an MDI child it
+    /// names the MDI <em>parent</em>, so a child's own menu bar would never fire; and it is
+    /// null whenever the active window is not a WinForms <c>Form</c>, which is the normal state
+    /// of a mixed WPF or native host. Owned top-level windows are excluded for free, because a
+    /// dialog is owned by the form but is not a child of it.
+    /// </para>
     /// </remarks>
     private sealed class AcceleratorFilter(NativeMenuBar owner): IMessageFilter {
         private const int WM_KEYFIRST = 0x0100;
@@ -307,7 +317,8 @@ public sealed class NativeMenuBar: IDisposable {
                 return false;
             }
 
-            if (!ReferenceEquals(Form.ActiveForm, owner._form)) {
+            var form = owner._form.Handle;
+            if (m.HWnd != form && !Win32Interop.IsChild(form, m.HWnd)) {
                 return false;
             }
 
