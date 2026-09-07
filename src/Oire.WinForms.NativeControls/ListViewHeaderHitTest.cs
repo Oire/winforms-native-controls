@@ -14,6 +14,9 @@ public static class ListViewHeaderHitTest {
     /// a divider, or in a divider's widened grab area. False in any view other than Details,
     /// where the list has no header window at all.
     /// </summary>
+    /// <param name="listView">The list whose header band is being tested.</param>
+    /// <param name="screenLocation">The point to test, in screen coordinates.</param>
+    /// <returns>True when the point is on the header band.</returns>
     public static bool IsOnHeader(ListView listView, Point screenLocation) {
         ArgumentNullException.ThrowIfNull(listView);
 
@@ -24,6 +27,9 @@ public static class ListViewHeaderHitTest {
     /// True when <paramref name="screenLocation"/> falls on the header band of a
     /// <see cref="NativeListView"/>.
     /// </summary>
+    /// <param name="listView">The list whose header band is being tested.</param>
+    /// <param name="screenLocation">The point to test, in screen coordinates.</param>
+    /// <returns>True when the point is on the header band.</returns>
     public static bool IsOnHeader(NativeListView listView, Point screenLocation) {
         ArgumentNullException.ThrowIfNull(listView);
 

@@ -39,3 +39,8 @@ csharp_preserve_single_line_statements = false
 dotnet_analyzer_diagnostic.category-security.severity = error
 dotnet_analyzer_diagnostic.category-performance.severity = warning
 dotnet_analyzer_diagnostic.category-reliability.severity = warning
+
+# `string` over `String`, and the same for every other predefined type. Both spellings were in
+# use and neither was enforced, so the split fell along feature lines rather than by choice.
+dotnet_style_predefined_type_for_locals_parameters_members = true:warning
+dotnet_style_predefined_type_for_member_access = true:warning

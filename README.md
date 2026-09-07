@@ -143,10 +143,10 @@ were written only after the stock controls had been measured and found wanting.
 | `NativeMenuSpec` / `NativeMenuItemSpec` | Declarative menu description — items, submenus, separators, checkables, radio groups |
 | `NativeMenuBar` | Owns the `HMENU`, the accelerator table and the form subclass |
 | `NativeContextMenu` | Popup menus bound to a control, with a resolver hook |
-| `ContextMenuRequest` | What a resolver receives: the control, the screen anchor, and whether the invocation came from the keyboard |
-| `MenuSpecValidator` | Rejects duplicate mnemonics and malformed radio groups before any handle is allocated |
+| `NativeContextMenuRequest` | What a resolver receives: the control, the screen anchor, and whether the invocation came from the keyboard |
+| `MenuSpecValidator` | Rejects duplicate mnemonics and malformed radio groups, as an `ArgumentException`, before any handle is allocated |
 | `MenuTextFormatter` | Mnemonic parsing and Win32 accelerator-text formatting |
-| `AccelConverter` | `Keys` → `ACCEL` mapping |
+| `AccelConverter` / `AcceleratorEntry` | `Keys` → `ACCEL` mapping, and the flags-and-key pair it returns |
 | `ListViewHeaderHitTest` | Whether a screen point is on a `ListView`'s column-header band |
 | `NativeListView` | A real `SysListView32`, announced as a list and read column by column |
 | `NativeListViewItem` / `NativeListViewColumn` | Its rows and columns — cell texts, per-row color and tag; header text, width, alignment and sort arrow |
@@ -156,8 +156,8 @@ were written only after the stock controls had been measured and found wanting.
 ## Things it does on purpose
 
 - **Mnemonic collisions are an error, not a shrug.** `MenuSpecValidator` throws if two items in
-  the same menu level share a mnemonic. That is normally a silent accessibility defect that
-  survives for years — most often introduced by a translator, in a language the author does not
+  the same menu level share a mnemonic, as an `ArgumentException`. That is normally a silent
+  accessibility defect that survives for years — most often introduced by a translator, in a language the author does not
   read. Failing loudly at startup is the point. It does mean localized menu text needs checking
   for duplicate `&` letters before it ships.
 - **Display-only shortcuts.** Pass `shortcutKeys: null` to show accelerator text without
@@ -179,14 +179,14 @@ between them. WinForms then layers a UI Automation provider on top which reports
 
 Measured on .NET 10:
 
-| | Stock WinForms `ListView` |
-| --- | --- |
-| Control type | `Table` |
-| Patterns advertised | Selection, Grid, MultipleView, Table |
-| Grid dimensions | correct |
-| Table column headers | correct |
-| Each cell's `GridItemPattern` / `TableItemPattern` | correct row, column and header |
-| **`GridPattern.GetItem(row, column)`** | **returns empty, typeless elements** |
+On a stock WinForms `ListView`:
+
+* Control type is `Table`.
+* Patterns advertised: Selection, Grid, MultipleView, Table.
+* Grid dimensions are correct.
+* Table column headers are correct.
+* Each cell's `GridItemPattern` and `TableItemPattern` report the correct row, column and header.
+* **`GridPattern.GetItem(row, column)` returns empty, typeless elements.**
 
 Every piece of data is present, but `GetItem` — the call a screen reader makes to walk to a
 cell — is broken. So the reader sees a table, enters table mode, asks for a cell, gets nothing
@@ -210,6 +210,14 @@ notes.Items.Add(new NativeListViewItem("Shopping list", "2026-09-01 09:15"));
 notes.Items[0].Selected = true;
 ```
 
+One caveat worth knowing before you wire it up: `AccessibleName` is declared with `new`
+rather than `override`, because `Control.AccessibleName` is not virtual and the name has to
+reach the list window rather than the container a reader never sees. Assigning it through a
+`Control`-typed reference — a loop that sets accessible names from a resource dictionary, a
+designer serializer, anything that walks `Controls` — therefore sets the name without
+forwarding it, and does so silently. Call `RefreshAccessibleName()` after any assignment that
+did not go through a `NativeListView`-typed reference.
+
 Because it is not a `ListView`, it does not inherit that control's API. The surface it does
 carry covers what a list-driven application actually uses:
 
@@ -222,8 +230,8 @@ carry covers what a list-driven application actually uses:
   column's `Alignment` and `SortOrder` arrow, both settable at any time. Left alone, the colors follow the system
   theme: light, dark and high contrast, and a switch between them while the application is
   running.
-* **Hit testing and layout** — `GetItemAt`, `GetItemBounds`, `SetInsertionMark` /
-  `ClearInsertionMark` for a drop indicator, and `BeginUpdate` / `EndUpdate` for bulk changes.
+* **Hit testing and layout** — `GetItemAt`, `GetItemBounds` (which is what a drop indicator is
+  positioned against), and `BeginUpdate` / `EndUpdate` for bulk changes.
 * **Events** — `SelectedIndexChanged`, `ColumnClick`, `ItemActivate`, `ItemDrag`, and the
   ordinary `DragEnter` / `DragOver` / `DragLeave` / `DragDrop` for drops on the list itself.
 
@@ -232,6 +240,34 @@ defensible other side, and an application that wants the stock presentation alre
 ask for it: use `ListView`. If a future framework release fixes `GetItem`, prefer the stock
 control — per-cell column headers and column navigation are genuinely better than a flat list,
 when they work.
+
+## Try it, with a screen reader running
+
+The claims above are about what a screen reader says, which no test suite can check. There is a
+small sample application for checking them by ear:
+
+```
+dotnet run --project samples/NoteBook
+```
+
+It is a notes window with a category tree, a `NativeListView` and a text box, wired to a native
+menu bar and two context menus. The layout exists for one reason: to make Tab move between the
+list and ordinary WinForms controls, which is the path most likely to break, since the list is a
+real `SysListView32` inside a container WinForms does not own.
+
+It also ships an English and a Hebrew catalog with a language switch in the View menu, because
+mirroring the layout while the text stays English tests very little. Switching to Hebrew puts
+right-to-left text in the menus, the column headers and the cells, puts Hebrew mnemonics through
+the collision validator, and drives the rebuild path a real application takes on a catalog
+change. The catalog is a plain dictionary rather than a localization framework — the library
+imposes none, so neither does its sample, and the call sites map onto gettext or resx unchanged.
+
+[`samples/NoteBook/LISTENING.md`](samples/NoteBook/LISTENING.md) is a step-by-step script of what to press and what you should
+hear at each step, including the right-to-left mode that is otherwise the least verified part of
+this library. It is the acceptance test for everything this README claims, and it is written for
+whoever is evaluating the library rather than for screen reader users — you do not need to be
+one, only to have a reader running for a few minutes. Narrator ships with Windows and NVDA is a
+free download, so checking the central claim costs about a quarter of an hour.
 
 ## Localization
 
@@ -269,8 +305,8 @@ RTL rendering is implemented but has not been verified against a real RTL locale
 
 ### Prerequisites
 
-- [.NET 10.0 SDK](https://dotnet.microsoft.com/download/dotnet/10.0) — the exact version is
-  pinned in `global.json`
+- [.NET 10.0 SDK](https://dotnet.microsoft.com/download/dotnet/10.0) — `global.json` pins the
+  feature band and rolls forward to its latest patch
 - Windows
 
 ### Clone and build
@@ -293,6 +329,10 @@ dotnet build -c Release
 
 Warnings are errors on CI, which is the warning-clean source of truth. Local builds are more
 forgiving, so an environment-specific warning does not block you.
+
+CI also builds Release and runs `dotnet pack` on every push. Nothing is published from there —
+the pack output is thrown away — but nuget.org versions are immutable, so the packaging is
+rehearsed on every commit rather than first attempted after the tag that makes it permanent.
 
 ### Run the tests
 
@@ -327,12 +367,14 @@ point of no return.
 
 At the repository root:
 
-* `Oire.WinForms.NativeControls.slnx` — the solution, in the XML format, covering the library and the tests.
+* `Oire.WinForms.NativeControls.slnx` — the solution, in the XML format, covering the library, the tests and the sample.
 * `README.md` — this file.
 * `CHANGELOG.md` — the release history, in [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) format.
 * `GitVersion.yml` — versioning configuration; the package version comes from git tags, not from the project file.
-* `global.json` — the pinned SDK version.
+* `global.json` — the SDK version, pinned to a feature band (`rollForward: latestPatch`).
 * `icon.png` — the package icon shown on nuget.org.
+* `.editorconfig`, `.gitattributes`, `.gitignore`, `LICENSE` and `.github/` — formatting rules
+  that CI enforces, line-ending normalization, the license, and the workflows.
 
 The library lives in `src/Oire.WinForms.NativeControls/`:
 
@@ -345,12 +387,20 @@ The library lives in `src/Oire.WinForms.NativeControls/`:
 * `MenuSpecValidator.cs` — mnemonic and radio-group validation.
 * `MenuTextFormatter.cs` — mnemonic parsing and accelerator-text formatting.
 * `AccelConverter.cs` — the `Keys` to `ACCEL` mapping.
+* `AcceleratorEntry.cs` — the `fVirt` and key pair of one `ACCEL` entry.
 * `MenuTrackingScope.cs` — guards a rebuild against a popup that is currently being tracked.
+* `FocusAnnouncer.cs` — re-announces the focused control after a native menu closes, which
+  nothing else will do because closing a menu moves no focus.
 * `ListViewHeaderHitTest.cs` — `LVM_GETHEADER` / `HDM_HITTEST` for the column-header band.
 * `NativeListView.cs` — the control that hosts a real `SysListView32`.
 * `NativeListViewItem.cs`, `NativeListViewColumn.cs` — its rows and columns.
 * `ListViewInterop.cs` — the `LVM_*` / `LVN_*` surface that drives it.
 * `Win32Interop.cs` — the P/Invoke surface and Win32 constants.
+
+[`samples/NoteBook/`](samples/NoteBook/) holds the sample application described above, together
+with [`LISTENING.md`](samples/NoteBook/LISTENING.md), the step-by-step script for checking the library by ear. `scripts/` holds
+`Get-ChangelogSection.ps1`, which the release workflow uses to put the changelog entry for a
+version on its GitHub release page.
 
 And alongside it, `tests/Oire.WinForms.NativeControls.Tests/` — the xUnit suite, including
 `StaRunner.cs`, which runs the tests needing a real form handle on a dedicated STA thread,

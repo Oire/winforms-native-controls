@@ -14,7 +14,7 @@ public sealed class NativeListViewItem {
         ArgumentNullException.ThrowIfNull(cells);
         // A List, not the array itself: Collection<T> over an array is read-only, so a
         // cell could never be reassigned afterwards.
-        _cells = new CellCollection(this, cells.Length == 0 ? [String.Empty] : new List<string>(cells));
+        _cells = new CellCollection(this, cells.Length == 0 ? [string.Empty] : new List<string>(cells));
     }
 
     /// <summary>Creates a row from its column texts, first column first.</summary>
@@ -101,12 +101,12 @@ public sealed class NativeListViewItem {
     /// </summary>
     private sealed class CellCollection(NativeListViewItem owner, IList<string> cells): Collection<string>(cells) {
         protected override void SetItem(int index, string item) {
-            base.SetItem(index, item ?? String.Empty);
-            owner.ListView?.UpdateCell(owner.Index, index, item ?? String.Empty);
+            base.SetItem(index, item ?? string.Empty);
+            owner.ListView?.UpdateCell(owner.Index, index, item ?? string.Empty);
         }
 
         protected override void InsertItem(int index, string item) {
-            base.InsertItem(index, item ?? String.Empty);
+            base.InsertItem(index, item ?? string.Empty);
             owner.ListView?.RefreshItem(owner);
         }
 

@@ -6,9 +6,16 @@ namespace Oire.WinForms.NativeControls;
 /// </summary>
 public static class MenuSpecValidator {
     /// <summary>
+    /// The parameter every failure here is about. The checks run several frames below
+    /// <see cref="Validate"/>, but the argument at fault is always the spec it was handed.
+    /// </summary>
+    private const string SpecParameterName = "spec";
+
+    /// <summary>
     /// Validates mnemonic uniqueness and radio-group integrity across the whole spec tree.
     /// </summary>
-    /// <exception cref="InvalidOperationException">
+    /// <param name="spec">The menu description to check.</param>
+    /// <exception cref="ArgumentException">
     /// Two items in the same menu level share a mnemonic, a radio group spans more than one
     /// parent menu, or a group starts with more than one item checked.
     /// </exception>
@@ -47,8 +54,9 @@ public static class MenuSpecValidator {
             }
 
             if (seen.TryGetValue(mnemonic, out var previousText)) {
-                throw new InvalidOperationException(
-                    $"Mnemonic '{mnemonic}' is used twice in {levelName}: '{previousText}' and '{item.Text}'.");
+                throw new ArgumentException(
+                    $"Mnemonic '{mnemonic}' is used twice in {levelName}: '{previousText}' and '{item.Text}'.",
+                    SpecParameterName);
             }
 
             seen[mnemonic] = item.Text;
@@ -67,9 +75,10 @@ public static class MenuSpecValidator {
             }
 
             if (groupOwners.TryGetValue(group, out var owner) && !ReferenceEquals(owner.Items, items)) {
-                throw new InvalidOperationException(
+                throw new ArgumentException(
                     $"Radio group '{group}' spans more than one menu: it appears in {owner.LevelName} and in {levelName}. " +
-                    "Radio-group members must be direct siblings.");
+                    "Radio-group members must be direct siblings.",
+                    SpecParameterName);
             }
 
             groupOwners[group] = new GroupOwner(items, levelName);
@@ -79,8 +88,9 @@ public static class MenuSpecValidator {
 
         foreach (var (group, count) in checkedCounts) {
             if (count > 1) {
-                throw new InvalidOperationException(
-                    $"Radio group '{group}' in {levelName} starts with {count} items checked; at most one may be checked.");
+                throw new ArgumentException(
+                    $"Radio group '{group}' in {levelName} starts with {count} items checked; at most one may be checked.",
+                    SpecParameterName);
             }
         }
     }

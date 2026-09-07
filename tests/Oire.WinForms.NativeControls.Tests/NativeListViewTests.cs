@@ -17,7 +17,7 @@ public class NativeListViewTests {
     private static extern int GetClassNameW(IntPtr hWnd, [Out] char[] buffer, int max);
 
     [Fact]
-    public void IsNotAWinFormsListView() {
+    public void Control_IsNotAWinFormsListView() {
         StaRunner.Run(() => {
             using var list = new NativeListView();
 
@@ -28,7 +28,7 @@ public class NativeListViewTests {
     }
 
     [Fact]
-    public void CreatesARealSysListView32() {
+    public void Handle_OnceRealized_CreatesARealSysListView32() {
         StaRunner.Run(() => {
             using var form = new Form();
             using var list = Build();
@@ -49,7 +49,7 @@ public class NativeListViewTests {
     }
 
     [Fact]
-    public void CarriesColumnsItemsAndSelectionOnceRealized() {
+    public void Items_OnceRealized_CarryColumnsAndSelection() {
         StaRunner.Run(() => {
             using var form = new Form();
             using var list = Build();
@@ -69,7 +69,7 @@ public class NativeListViewTests {
     }
 
     [Fact]
-    public void TracksIndexesAsRowsMove() {
+    public void Items_AsRowsMove_TrackTheirIndexes() {
         StaRunner.Run(() => {
             using var list = Build();
 
@@ -85,7 +85,7 @@ public class NativeListViewTests {
     }
 
     [Fact]
-    public void DetachesRowsThatLeaveTheControl() {
+    public void Items_WhenRemoved_AreDetachedFromTheControl() {
         StaRunner.Run(() => {
             using var list = Build();
             var removed = list.Items[0];
@@ -101,7 +101,7 @@ public class NativeListViewTests {
     }
 
     [Fact]
-    public void RebuildsItselfAfterAHandleRecreation() {
+    public void Handle_AfterRecreation_RebuildsTheListWindow() {
         StaRunner.Run(() => {
             using var form = new Form();
             using var list = Build();
@@ -123,7 +123,7 @@ public class NativeListViewTests {
     }
 
     [Fact]
-    public void KeepsCellsAddressableWithoutAHandle() {
+    public void Cells_WithoutAHandle_StayAddressable() {
         StaRunner.Run(() => {
             using var list = Build();
 
@@ -136,7 +136,7 @@ public class NativeListViewTests {
     }
 
     [Fact]
-    public void ReportsColumnsWithTheirIndexes() {
+    public void Columns_OnceRealized_ReportTheirIndexes() {
         StaRunner.Run(() => {
             using var list = Build();
 
@@ -148,7 +148,7 @@ public class NativeListViewTests {
     }
 
     [Fact]
-    public void AsksForARealSizeSoLayoutPanelsCanMeasureIt() {
+    public void DefaultSize_WithNothingElseDeciding_IsNotEmpty() {
         StaRunner.Run(() => {
             using var list = Build();
 
@@ -163,7 +163,7 @@ public class NativeListViewTests {
     }
 
     [Fact]
-    public void DerivesThatSizeFromTheFontRatherThanFixingItInPixels() {
+    public void DefaultSize_WhenTheFontChanges_FollowsIt() {
         StaRunner.Run(() => {
             using var list = Build();
 
@@ -185,7 +185,7 @@ public class NativeListViewTests {
     /// correction to the window colors.
     /// </summary>
     [Fact]
-    public void DefaultsToTheWindowColorsRatherThanTheDialogGray() {
+    public void Colors_ByDefault_AreTheWindowColorsNotTheDialogGray() {
         StaRunner.Run(() => {
             using var list = new NativeListView();
 
@@ -199,7 +199,7 @@ public class NativeListViewTests {
     /// unless it is pushed across. Read back from the control rather than trusted.
     /// </summary>
     [Fact]
-    public void PushesColorsIntoTheListWindow() {
+    public void Colors_WhenAssigned_ReachTheListWindow() {
         StaRunner.Run(() => {
             using var form = new Form();
             using var list = Build();
@@ -224,7 +224,7 @@ public class NativeListViewTests {
     /// application has already taken away.
     /// </summary>
     [Fact]
-    public void ClearingTheAccessibleNameReachesTheListWindow() {
+    public void AccessibleName_WhenCleared_ReachesTheListWindow() {
         StaRunner.Run(() => {
             using var form = new Form();
             using var list = Build();
@@ -250,7 +250,7 @@ public class NativeListViewTests {
     /// application's color mode, which is process-wide and would leak into every other test.
     /// </remarks>
     [Fact]
-    public void RepushesColorsWhenTheSystemThemeChanges() {
+    public void Colors_OnASystemThemeChange_ArePushedAgain() {
         StaRunner.Run(() => {
             using var form = new Form();
             using var list = Build();
@@ -276,7 +276,7 @@ public class NativeListViewTests {
     /// Alignment is settable after construction, like every other column property.
     /// </summary>
     [Fact]
-    public void ColumnAlignmentIsSettableAfterConstruction() {
+    public void ColumnAlignment_AfterConstruction_IsSettable() {
         StaRunner.Run(() => {
             using var form = new Form();
             using var list = Build();
@@ -301,7 +301,7 @@ public class NativeListViewTests {
     /// would clear an arrow that was already there. Both have to survive the other.
     /// </summary>
     [Fact]
-    public void SettingAlignmentKeepsTheSortArrow() {
+    public void ColumnAlignment_WhenAssigned_KeepsTheSortArrow() {
         StaRunner.Run(() => {
             using var form = new Form();
             using var list = Build();
@@ -328,6 +328,43 @@ public class NativeListViewTests {
             .Should().NotBe(IntPtr.Zero);
         return native.Fmt;
     }
+
+    /// <summary>
+    /// Assigning <see cref="Color.Empty"/> is how WinForms spells "reset to the default", and
+    /// is what <see cref="Control.ResetBackColor"/> does. Storing it as a color would push
+    /// black into the list, since an empty color's components are all zero.
+    /// </summary>
+    [Fact]
+    public void Colors_SetToEmpty_ResetRatherThanPaintingBlack() {
+        StaRunner.Run(() => {
+            using var form = new Form();
+            using var list = Build();
+            form.Controls.Add(list);
+            _ = form.Handle;
+            _ = list.Handle;
+
+            list.BackColor = Color.FromArgb(0x10, 0x20, 0x30);
+            list.ForeColor = Color.FromArgb(0x40, 0x50, 0x60);
+
+            list.BackColor = Color.Empty;
+            list.ForeColor = Color.Empty;
+
+            list.BackColor.Should().Be(SystemColors.Window);
+            list.ForeColor.Should().Be(SystemColors.WindowText);
+            SendMessageW(list.ListHandle, LVM_GETBKCOLOR, IntPtr.Zero, IntPtr.Zero)
+                .Should().Be(ToColorRef(SystemColors.Window));
+
+            list.BackColor = Color.FromArgb(0x10, 0x20, 0x30);
+            list.ResetBackColor();
+
+            list.BackColor.Should().Be(SystemColors.Window);
+            SendMessageW(list.ListHandle, LVM_GETBKCOLOR, IntPtr.Zero, IntPtr.Zero)
+                .Should().Be(ToColorRef(SystemColors.Window));
+        });
+    }
+
+    /// <summary><c>COLORREF</c> is 0x00BBGGRR, the reverse of the usual order.</summary>
+    private static int ToColorRef(Color color) => color.R | (color.G << 8) | (color.B << 16);
 
     private const uint LVM_SETBKCOLOR = 0x1000 + 1;
     private const uint LVM_GETBKCOLOR = 0x1000 + 0;

@@ -14,10 +14,12 @@ public static class AccelConverter {
     /// <c>FVIRTKEY</c> is always set: menu accelerators are key chords, never raw character
     /// codes.
     /// </summary>
+    /// <param name="keys">The chord to convert, modifiers included.</param>
+    /// <returns>The flags and virtual-key code for one <c>ACCEL</c> table entry.</returns>
     /// <exception cref="ArgumentException">
     /// <paramref name="keys"/> carries no key code (modifiers alone, or <see cref="Keys.None"/>).
     /// </exception>
-    public static (byte FVirt, ushort Key) ConvertKey(Keys keys) {
+    public static AcceleratorEntry ConvertKey(Keys keys) {
         var keyCode = keys & Keys.KeyCode;
         if (keyCode == Keys.None) {
             throw new ArgumentException("An accelerator needs a key code, not modifiers alone.", nameof(keys));
@@ -36,6 +38,6 @@ public static class AccelConverter {
             fVirt |= Win32Interop.FALT;
         }
 
-        return (fVirt, (ushort)keyCode);
+        return new AcceleratorEntry(fVirt, (ushort)keyCode);
     }
 }

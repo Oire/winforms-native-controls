@@ -1,0 +1,34 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <OutputType>WinExe</OutputType>
+        <TargetFramework>net10.0-windows</TargetFramework>
+        <UseWindowsForms>true</UseWindowsForms>
+        <ImplicitUsings>enable</ImplicitUsings>
+        <Nullable>enable</Nullable>
+        <LangVersion>latest</LangVersion>
+        <RootNamespace>NoteBook</RootNamespace>
+
+        <!-- The same analyzer bar as the library. A sample is the code most likely to be copied
+             verbatim, so it should not be the one place warnings are tolerated. -->
+        <AnalysisLevel>latest</AnalysisLevel>
+        <EnableNETAnalyzers>true</EnableNETAnalyzers>
+        <TreatWarningsAsErrors Condition="'$(GITHUB_ACTIONS)' == 'true'">true</TreatWarningsAsErrors>
+        <ApplicationManifest>app.manifest</ApplicationManifest>
+
+        <!-- A sample is not a product: it is never packed and never published. -->
+        <IsPackable>false</IsPackable>
+        <IsPublishable>false</IsPublishable>
+
+        <!-- The library requires XML docs on every public member; a sample has no public API
+             worth documenting, so it opts out rather than carrying empty summaries. -->
+        <GenerateDocumentationFile>false</GenerateDocumentationFile>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <!-- A project reference, not a package one, so the sample always exercises the working
+             tree rather than whatever version happens to be on nuget.org. -->
+        <ProjectReference Include="../../src/Oire.WinForms.NativeControls/Oire.WinForms.NativeControls.csproj" />
+    </ItemGroup>
+
+</Project>

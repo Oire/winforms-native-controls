@@ -30,7 +30,7 @@ public class MenuSpecValidatorTests {
 
         var act = () => MenuSpecValidator.Validate(spec);
 
-        act.Should().Throw<InvalidOperationException>()
+        act.Should().Throw<ArgumentException>()
             .WithMessage("*'F'*&File*&Format*");
     }
 
@@ -41,7 +41,7 @@ public class MenuSpecValidatorTests {
 
         var act = () => MenuSpecValidator.Validate(spec);
 
-        act.Should().Throw<InvalidOperationException>().WithMessage("*submenu 'File'*");
+        act.Should().Throw<ArgumentException>().WithMessage("*submenu 'File'*");
     }
 
     [Fact]
@@ -61,7 +61,7 @@ public class MenuSpecValidatorTests {
 
         var act = () => MenuSpecValidator.Validate(spec);
 
-        act.Should().Throw<InvalidOperationException>();
+        act.Should().Throw<ArgumentException>();
     }
 
     [Fact]
@@ -109,7 +109,7 @@ public class MenuSpecValidatorTests {
 
         var act = () => MenuSpecValidator.Validate(spec);
 
-        act.Should().Throw<InvalidOperationException>().WithMessage("*spans more than one menu*");
+        act.Should().Throw<ArgumentException>().WithMessage("*spans more than one menu*");
     }
 
     [Fact]
@@ -120,7 +120,7 @@ public class MenuSpecValidatorTests {
 
         var act = () => MenuSpecValidator.Validate(spec);
 
-        act.Should().Throw<InvalidOperationException>().WithMessage("*spans more than one menu*");
+        act.Should().Throw<ArgumentException>().WithMessage("*spans more than one menu*");
     }
 
     [Fact]
@@ -131,7 +131,7 @@ public class MenuSpecValidatorTests {
 
         var act = () => MenuSpecValidator.Validate(spec);
 
-        act.Should().Throw<InvalidOperationException>().WithMessage("*at most one may be checked*");
+        act.Should().Throw<ArgumentException>().WithMessage("*at most one may be checked*");
     }
 
     [Fact]

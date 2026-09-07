@@ -1,8 +1,13 @@
 mode: ManualDeployment
 tag-prefix: '[vV]'
-assembly-versioning-format: '{Major}.{Minor}.{Patch}.{VersionSourceDistance}'
+# AssemblyVersion is the binding identity, so it moves only on a major version. A patch that
+# changed it would force every consumer to rebind. FileVersion and InformationalVersion below
+# still carry the full version for diagnostics.
+assembly-versioning-format: '{Major}.0.0.0'
 assembly-file-versioning-format: '{Major}.{Minor}.{Patch}.{VersionSourceDistance}'
-assembly-informational-format: '{Major}.{Minor}.{Patch}.{VersionSourceDistance}'
+# The full SemVer, prerelease label included. The file version above cannot carry one, so a
+# beta build would otherwise be indistinguishable from the stable release of the same number.
+assembly-informational-format: '{SemVer}'
 branches:
   main:
     increment: None

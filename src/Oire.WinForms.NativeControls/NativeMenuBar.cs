@@ -22,6 +22,7 @@ public sealed class NativeMenuBar: IDisposable {
     private bool _disposed;
 
     /// <summary>Creates a menu bar owner for <paramref name="form"/>. Nothing is built until <see cref="Attach"/>.</summary>
+    /// <param name="form">The form whose menu bar this will own.</param>
     public NativeMenuBar(Form form) {
         ArgumentNullException.ThrowIfNull(form);
         _form = form;
@@ -32,7 +33,8 @@ public sealed class NativeMenuBar: IDisposable {
     /// puts it on the form. Calling this again on the same HWND is equivalent to
     /// <see cref="Rebuild"/>; calling it after a handle recreation rebinds to the new HWND.
     /// </summary>
-    /// <exception cref="InvalidOperationException">
+    /// <param name="spec">The menu description to build the bar from.</param>
+    /// <exception cref="ArgumentException">
     /// The spec has a mnemonic collision or a malformed radio group. Nothing is allocated in
     /// that case — validation runs before the first <c>HMENU</c>.
     /// </exception>
@@ -78,9 +80,11 @@ public sealed class NativeMenuBar: IDisposable {
     /// Swaps in a freshly built menu — used after a language change, where every label needs
     /// to be re-evaluated against the new catalog.
     /// </summary>
+    /// <param name="spec">The replacement menu description.</param>
     /// <exception cref="InvalidOperationException">
-    /// A popup menu is currently being tracked, or the new spec fails validation.
+    /// A popup menu is currently being tracked, so its <c>HMENU</c> cannot be destroyed yet.
     /// </exception>
+    /// <exception cref="ArgumentException">The new spec fails validation.</exception>
     public void Rebuild(NativeMenuSpec spec) {
         ObjectDisposedException.ThrowIf(_disposed, this);
         ArgumentNullException.ThrowIfNull(spec);

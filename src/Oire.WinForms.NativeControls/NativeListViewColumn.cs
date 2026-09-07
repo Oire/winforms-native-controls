@@ -47,17 +47,21 @@ public sealed class NativeListViewColumn {
     /// How the column's text is aligned. The first column of a report-mode list is always
     /// left-aligned by the control itself; this is honored from the second column onward.
     /// </param>
+    /// <exception cref="ArgumentNullException"><paramref name="text"/> is null.</exception>
     public NativeListViewColumn(string text, int width, NativeColumnAlignment alignment = NativeColumnAlignment.Left) {
-        _text = text ?? String.Empty;
+        ArgumentNullException.ThrowIfNull(text);
+        _text = text;
         _width = width;
         _alignment = alignment;
     }
 
     /// <summary>The header text.</summary>
+    /// <exception cref="ArgumentNullException">The assigned value is null.</exception>
     public string Text {
         get => _text;
         set {
-            _text = value ?? String.Empty;
+            ArgumentNullException.ThrowIfNull(value);
+            _text = value;
             ListView?.UpdateColumn(this);
         }
     }
@@ -76,12 +80,18 @@ public sealed class NativeListViewColumn {
     /// one.
     /// </summary>
     /// <remarks>
-    /// The first column of a report-mode list is always left-aligned by the control itself, so
-    /// assigning anything else to column zero is stored and reported back but not drawn. That
-    /// is a Win32 rule, not a choice made here.
+    /// Read back from the control while the column is in one, rather than remembered, so the
+    /// property cannot drift from it: an update the control refuses reports the alignment still
+    /// in force instead of the one that failed to take.
+    /// <para>
+    /// The first column of a report-mode list is the exception, and a Win32 rule rather than a
+    /// choice made here: the control stores and returns whatever format it is given for column
+    /// zero, but always draws that column left-aligned. So an alignment assigned there reads
+    /// back as assigned while the list still shows it left-aligned.
+    /// </para>
     /// </remarks>
     public NativeColumnAlignment Alignment {
-        get => _alignment;
+        get => ListView?.GetColumnAlignment(Index) ?? _alignment;
         set {
             _alignment = value;
             ListView?.UpdateColumnAlignment(Index, value);
@@ -92,8 +102,12 @@ public sealed class NativeListViewColumn {
     /// The sort arrow drawn in this column's header. Purely an indicator: the control does not
     /// sort, and setting this does not reorder anything.
     /// </summary>
+    /// <remarks>
+    /// Read back from the header while the column is in a control, as <see cref="Width"/> and
+    /// <see cref="Alignment"/> are, so the property reports the arrow actually drawn.
+    /// </remarks>
     public NativeSortOrder SortOrder {
-        get => _sortOrder;
+        get => ListView?.GetSortIndicator(Index) ?? _sortOrder;
         set {
             _sortOrder = value;
             ListView?.UpdateSortIndicator(Index, value);
@@ -106,7 +120,10 @@ public sealed class NativeListViewColumn {
     /// <summary>Position in the control, or -1 while the column is detached.</summary>
     public int Index { get; internal set; } = -1;
 
-    /// <summary>The width this column was created with, before the control resized it.</summary>
+    /// <summary>
+    /// The last width assigned to this column, which is what a fresh window is built with.
+    /// Not necessarily the constructor's, since the setter updates it too.
+    /// </summary>
     internal int InitialWidth => _width;
 
     /// <inheritdoc />

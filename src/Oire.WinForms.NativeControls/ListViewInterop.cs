@@ -125,7 +125,6 @@ internal static class ListViewInterop {
     internal const uint LVM_DELETECOLUMN = LVM_FIRST + 28;
     internal const uint LVM_GETCOLUMNWIDTH = LVM_FIRST + 29;
     internal const uint LVM_SETCOLUMNWIDTH = LVM_FIRST + 30;
-    internal const uint LVM_SETINSERTMARK = LVM_FIRST + 166;
     internal const uint LVM_GETHEADER = LVM_FIRST + 31;
     internal const uint LVM_GETITEMRECT = LVM_FIRST + 14;
 

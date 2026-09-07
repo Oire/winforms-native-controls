@@ -21,9 +21,18 @@ on:
   push:
     tags: [ "v*" ]
 
+# Two tags pushed in quick succession must not race toward the same nuget.org push. No
+# cancel-in-progress: a half-finished release is worse than a queued one.
+concurrency:
+  group: release
+  cancel-in-progress: false
+
 jobs:
   build-test:
     runs-on: windows-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
 
     steps:
     - uses: actions/checkout@v7
@@ -62,6 +71,7 @@ jobs:
   publish:
     needs: build-test
     runs-on: windows-latest
+    timeout-minutes: 20
     environment: nuget
     permissions:
       contents: write   # create the GitHub release
@@ -71,6 +81,8 @@ jobs:
       GH_REPO: ${{ github.repository }}
 
     steps:
+    # The changelog extraction below reads from the repository, not from the built package.
+    - uses: actions/checkout@v7
     - name: Download package
       uses: actions/download-artifact@v8
       with:
@@ -102,7 +114,30 @@ jobs:
         # Build one flat argument array and let PowerShell expand it into separate args for the native
         # command. Do NOT use `@` splatting on a native command: it splits a single string path into
         # its characters (a .nupkg path became "D", ":", "\", ... and gh choked on "D").
-        $ghArgs = @($tag) + $assets + @('--verify-tag', '--generate-notes', '--title', "Version $version")
+        # Prefer the hand-written changelog entry over notes derived from commit and pull
+        # request titles. Falls back to --generate-notes when the version has no section, so a
+        # release never fails for want of prose.
+        # Wrapped: the package is already on nuget.org by this point and that cannot be undone,
+        # so nothing about assembling release *prose* is allowed to fail the run. Any problem
+        # here degrades to generated notes instead.
+        $notes = $null
+        try {
+          $notes = & "$env:GITHUB_WORKSPACE/scripts/Get-ChangelogSection.ps1" -Version $version -Path "$env:GITHUB_WORKSPACE/CHANGELOG.md"
+        } catch {
+          Write-Warning "Could not read the CHANGELOG section: $_"
+        }
+
+        if ($notes) {
+          $notesFile = Join-Path $env:RUNNER_TEMP 'release-notes.md'
+          Set-Content -Path $notesFile -Value $notes -Encoding utf8
+          $noteArgs = @('--notes-file', $notesFile)
+          Write-Host "Using CHANGELOG section for $version."
+        } else {
+          $noteArgs = @('--generate-notes')
+          Write-Warning "No CHANGELOG section for $version; falling back to generated notes."
+        }
+
+        $ghArgs = @($tag) + $assets + $noteArgs + @('--verify-tag', '--title', "Version $version")
         # Mark as a GitHub pre-release when either holds:
         #   - the tag carries a pre-release suffix (e.g. v1.2.3-beta.1);
         #   - the major version is 0, which under SemVer means the public API is still unstable.
