@@ -9,8 +9,9 @@
              Windows SDK. -->
         <TargetFramework>net10.0-windows</TargetFramework>
         <UseWindowsForms>true</UseWindowsForms>
-        <!-- AnyCPU: a library must not force a bitness on its consumers. The interop uses
-             nint/nuint rather than fixed-width casts, so it is correct on x86, x64 and Arm64. -->
+        <!-- AnyCPU: a library must not force a bitness on its consumers. The interop is written
+             in terms of IntPtr, which is pointer-sized by definition, so it is correct on x86,
+             x64 and Arm64 alike. -->
         <PlatformTarget>AnyCPU</PlatformTarget>
         <LangVersion>latest</LangVersion>
         <ImplicitUsings>enable</ImplicitUsings>
@@ -46,18 +47,38 @@
 
         <!-- Package metadata. Version comes from GitVersion (ManualDeployment): a `v*` tag sets it. -->
         <Product>Oire WinForms Native Controls</Product>
-        <Description>Win32-native replacements for the Windows Forms controls that screen readers handle poorly. Menu bars and context menus built on real HMENU handles instead of WinForms' managed ToolStrip, announced as menu bars, submenus and popup menus, with mnemonic-collision validation and a proper accelerator table. Plus a ListView that screen readers can read past the first column, which the stock control's UI Automation provider prevents. Toolbars and status bars are the intended next members.</Description>
+        <Description>Win32-native replacements for the Windows Forms controls that screen readers handle poorly. Menu bars and context menus built on real HMENU handles instead of WinForms' managed ToolStrip, announced as menu bars, submenus and popup menus, with mnemonic-collision validation and a proper accelerator table. Plus a ListView that screen readers can read past the first column, which the stock control's UI Automation provider prevents.</Description>
         <Authors>André Polykanine, Oire Software</Authors>
         <Company>Oire Software</Company>
         <Copyright>Copyright © 2026 André Polykanine, Oire Software, and contributors.</Copyright>
         <PackageId>Oire.WinForms.NativeControls</PackageId>
+        <!-- nuget.org shows the id when there is no title, which reads as a namespace rather
+             than a name. -->
+        <Title>Oire WinForms Native Controls</Title>
         <PackageLicenseExpression>Apache-2.0</PackageLicenseExpression>
+        <PackageIcon>icon.png</PackageIcon>
         <RepositoryUrl>https://github.com/Oire/winforms-native-controls</RepositoryUrl>
         <RepositoryType>git</RepositoryType>
         <PackageProjectUrl>https://github.com/Oire/winforms-native-controls</PackageProjectUrl>
         <PackageTags>winforms;accessibility;a11y;screen-reader;win32;pinvoke;hmenu;menu;listview;jaws;nvda</PackageTags>
         <PackageReadmeFile>docs/README.md</PackageReadmeFile>
-        <PackageReleaseNotes>https://github.com/Oire/winforms-native-controls/blob/master/CHANGELOG.md</PackageReleaseNotes>
+        <PackageReleaseNotes>Release notes for every version are in CHANGELOG.md, shipped in this package under docs/ and published at https://github.com/Oire/winforms-native-controls/blob/master/CHANGELOG.md</PackageReleaseNotes>
+
+        <!-- Compare every pack against the last published stable package and fail on a breaking
+             change to the public surface, which is what makes the semantic-versioning promise in
+             the README something the build enforces rather than something we remember.
+
+             OFF until 1.0.0 is on nuget.org, and deliberately so: the promise starts at 1.0, and
+             a baseline before then would lock in 0.x decisions at the one moment they are still
+             open to revision. The baseline also has to name a package that already exists on a
+             feed, so it cannot point at 1.0.0 in advance.
+
+             TO ENABLE, in the first change after 1.0.0 is published:
+               <EnablePackageValidation>true</EnablePackageValidation>
+               <PackageValidationBaselineVersion>1.0.0</PackageValidationBaselineVersion>
+             Thereafter bump the baseline to the newest published version whenever a deliberate
+             breaking change ships in a new major. -->
+        <EnablePackageValidation>false</EnablePackageValidation>
     </PropertyGroup>
 
     <PropertyGroup Condition="'$(Configuration)' == 'Debug'">
@@ -81,6 +102,8 @@
     <ItemGroup>
         <None Include="../../README.md" Pack="true" Visible="false" PackagePath="docs" />
         <None Include="../../CHANGELOG.md" Pack="true" Visible="false" PackagePath="docs" />
+        <!-- PackagePath is the package root: PackageIcon above names it without a folder. -->
+        <None Include="../../icon.png" Pack="true" Visible="false" PackagePath="" />
     </ItemGroup>
 
     <ItemGroup>

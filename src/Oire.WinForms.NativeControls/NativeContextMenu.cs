@@ -12,7 +12,7 @@ namespace Oire.WinForms.NativeControls;
 /// Callers that hit-test a sub-region (a ListView column header, say) should skip the test
 /// when this is true — a keyboard invocation carries no meaningful pointer position.
 /// </param>
-public sealed record ContextMenuRequest(Control Control, Point ScreenLocation, bool FromKeyboard);
+public sealed record NativeContextMenuRequest(Control Control, Point ScreenLocation, bool FromKeyboard);
 
 /// <summary>
 /// A native popup menu, optionally bound to a control so it opens on right-click, Shift+F10,
@@ -32,7 +32,8 @@ public sealed class NativeContextMenu: IDisposable {
     private bool _disposed;
 
     /// <summary>Builds the popup from <paramref name="spec"/>.</summary>
-    /// <exception cref="InvalidOperationException">
+    /// <param name="spec">The menu description to build from.</param>
+    /// <exception cref="ArgumentException">
     /// The spec has a mnemonic collision or a malformed radio group.
     /// </exception>
     public NativeContextMenu(NativeMenuSpec spec) {
@@ -47,12 +48,16 @@ public sealed class NativeContextMenu: IDisposable {
     /// carry more than one context menu. Returning null suppresses the menu; leaving this null
     /// always opens this menu.
     /// </summary>
-    public Func<ContextMenuRequest, NativeContextMenu?>? Resolver { get; set; }
+    public Func<NativeContextMenuRequest, NativeContextMenu?>? Resolver { get; set; }
 
     /// <summary>
     /// Binds the menu to <paramref name="control"/>. One instance serves one control — give
     /// each control its own instance, built from the same spec if they share a menu.
     /// </summary>
+    /// <param name="control">The control to open the menu on.</param>
+    /// <exception cref="InvalidOperationException">
+    /// This instance is already attached to a control.
+    /// </exception>
     public void AttachTo(Control control) {
         ObjectDisposedException.ThrowIf(_disposed, this);
         ArgumentNullException.ThrowIfNull(control);
@@ -80,6 +85,8 @@ public sealed class NativeContextMenu: IDisposable {
     /// Opens the menu at <paramref name="screenLocation"/> and runs the chosen item's callback.
     /// Blocks until the user picks an item or dismisses the menu, as Win32 popup tracking does.
     /// </summary>
+    /// <param name="owner">The control the popup belongs to; it receives the menu messages.</param>
+    /// <param name="screenLocation">Where the top-left corner of the popup goes, in screen coordinates.</param>
     public void Show(Control owner, Point screenLocation) {
         ObjectDisposedException.ThrowIf(_disposed, this);
         ArgumentNullException.ThrowIfNull(owner);
@@ -118,9 +125,11 @@ public sealed class NativeContextMenu: IDisposable {
     /// <summary>
     /// Swaps in a freshly built menu — used after a language change.
     /// </summary>
+    /// <param name="spec">The replacement menu description.</param>
     /// <exception cref="InvalidOperationException">
-    /// A popup menu is currently being tracked, or the new spec fails validation.
+    /// A popup menu is currently being tracked, so its <c>HMENU</c> cannot be destroyed yet.
     /// </exception>
+    /// <exception cref="ArgumentException">The new spec fails validation.</exception>
     public void Rebuild(NativeMenuSpec spec) {
         ObjectDisposedException.ThrowIf(_disposed, this);
         ArgumentNullException.ThrowIfNull(spec);
@@ -196,7 +205,7 @@ public sealed class NativeContextMenu: IDisposable {
 
         var target = Resolver is null
             ? this
-            : Resolver(new ContextMenuRequest(_control, anchor, fromKeyboard));
+            : Resolver(new NativeContextMenuRequest(_control, anchor, fromKeyboard));
 
         // A null resolver result means "show nothing", but the message is still ours.
         target?.Show(_control, anchor);
@@ -210,6 +219,11 @@ public sealed class NativeContextMenu: IDisposable {
     /// </summary>
     private static Point KeyboardAnchorFor(Control control) {
         switch (control) {
+            // Before the WinForms ListView case: NativeListView is a Control, not a ListView,
+            // so it would otherwise fall through to the corner of the control.
+            case NativeListView { FocusedItem: { } focused } nativeList
+                when nativeList.GetItemBounds(focused.Index) is { IsEmpty: false } bounds:
+                return nativeList.PointToScreen(new Point(bounds.Left, bounds.Bottom));
             case ListView { FocusedItem: { } item } listView:
                 return listView.PointToScreen(new Point(item.Bounds.Left, item.Bounds.Bottom));
             case TreeView { SelectedNode: { } node } treeView:

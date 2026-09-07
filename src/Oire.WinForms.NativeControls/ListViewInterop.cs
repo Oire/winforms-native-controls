@@ -125,9 +125,16 @@ internal static class ListViewInterop {
     internal const uint LVM_DELETECOLUMN = LVM_FIRST + 28;
     internal const uint LVM_GETCOLUMNWIDTH = LVM_FIRST + 29;
     internal const uint LVM_SETCOLUMNWIDTH = LVM_FIRST + 30;
-    internal const uint LVM_SETINSERTMARK = LVM_FIRST + 166;
     internal const uint LVM_GETHEADER = LVM_FIRST + 31;
     internal const uint LVM_GETITEMRECT = LVM_FIRST + 14;
+
+    // The list paints its own background and text; these are the only way a color set on the
+    // managed control reaches it. LVM_SETTEXTBKCOLOR goes with LVM_SETBKCOLOR: the first is the
+    // ground behind a row's text, the second the ground behind the whole control, and setting
+    // one without the other leaves the label sitting on a stripe of the old color.
+    internal const uint LVM_SETBKCOLOR = LVM_FIRST + 1;
+    internal const uint LVM_SETTEXTCOLOR = LVM_FIRST + 36;
+    internal const uint LVM_SETTEXTBKCOLOR = LVM_FIRST + 38;
 
     internal const uint HDM_GETITEMW = 0x1200 + 11;
     internal const uint HDM_SETITEMW = 0x1200 + 12;
@@ -145,6 +152,9 @@ internal static class ListViewInterop {
     internal const uint LVCF_WIDTH = 0x0002;
     internal const uint LVCF_TEXT = 0x0004;
     internal const uint LVCF_SUBITEM = 0x0008;
+
+    /// <summary>The alignment bits of a column format, which the sort-arrow bits sit outside.</summary>
+    internal const int LVCFMT_JUSTIFYMASK = 0x0003;
 
     internal const int LVCFMT_LEFT = 0x0000;
     internal const int LVCFMT_RIGHT = 0x0001;

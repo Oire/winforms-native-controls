@@ -13,6 +13,9 @@ public static class MenuTextFormatter {
     /// Joins label and accelerator text with the tab Win32 aligns on. A null or blank
     /// <paramref name="shortcut"/> returns <paramref name="text"/> unchanged.
     /// </summary>
+    /// <param name="text">The item label.</param>
+    /// <param name="shortcut">The accelerator text, or null.</param>
+    /// <returns>The label Win32 should be given for the item.</returns>
     public static string FormatForWin32(string text, string? shortcut) {
         ArgumentNullException.ThrowIfNull(text);
         return string.IsNullOrEmpty(shortcut) ? text : $"{text}\t{shortcut}";
@@ -22,6 +25,8 @@ public static class MenuTextFormatter {
     /// Removes the mnemonic marker, collapsing <c>&amp;&amp;</c> to a single literal
     /// <c>&amp;</c>. <c>"&amp;New Note"</c> becomes <c>"New Note"</c>.
     /// </summary>
+    /// <param name="text">The label to strip.</param>
+    /// <returns>The label as it reads without mnemonic markers.</returns>
     public static string StripMnemonic(string text) {
         ArgumentNullException.ThrowIfNull(text);
         if (!text.Contains('&', StringComparison.Ordinal)) {
@@ -50,6 +55,8 @@ public static class MenuTextFormatter {
     /// Returns the uppercased character following the first unescaped <c>&amp;</c>, or null
     /// when the text carries no mnemonic. Uppercasing makes collision checks case-insensitive.
     /// </summary>
+    /// <param name="text">The label to read the mnemonic out of.</param>
+    /// <returns>The uppercased mnemonic letter, or null when there is none.</returns>
     public static char? ExtractMnemonic(string text) {
         ArgumentNullException.ThrowIfNull(text);
         for (var i = 0; i < text.Length; i++) {

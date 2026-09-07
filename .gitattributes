@@ -1,0 +1,14 @@
+# .editorconfig sets end_of_line = crlf, and CI gates on `dotnet format --verify-no-changes`.
+# Without this file that check depends on each contributor's core.autocrlf setting, and a
+# clone on Linux or with autocrlf=false fails a build for a reason invisible in the diff.
+* text=auto eol=crlf
+
+# Never touched by line-ending normalization.
+*.png binary
+*.ico binary
+*.snk binary
+*.nupkg binary
+*.snupkg binary
+
+# Shell scripts must keep LF or they will not run.
+*.sh text eol=lf

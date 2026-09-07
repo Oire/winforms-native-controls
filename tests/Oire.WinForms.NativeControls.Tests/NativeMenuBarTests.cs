@@ -136,7 +136,7 @@ public class NativeMenuBarTests {
 
             var act = () => bar.Attach(spec);
 
-            act.Should().Throw<InvalidOperationException>().WithMessage("*Mnemonic 'F'*");
+            act.Should().Throw<ArgumentException>().WithMessage("*Mnemonic 'F'*");
         });
     }
 
@@ -152,7 +152,7 @@ public class NativeMenuBarTests {
 
             var act = () => bar.Attach(spec);
 
-            act.Should().Throw<InvalidOperationException>().WithMessage("*spans more than one menu*");
+            act.Should().Throw<ArgumentException>().WithMessage("*spans more than one menu*");
         });
     }
 
@@ -169,7 +169,7 @@ public class NativeMenuBarTests {
 
             var act = () => bar.Attach(spec);
 
-            act.Should().Throw<InvalidOperationException>().WithMessage("*at most one may be checked*");
+            act.Should().Throw<ArgumentException>().WithMessage("*at most one may be checked*");
         });
     }
 
@@ -182,7 +182,7 @@ public class NativeMenuBarTests {
             var bar = new NativeMenuBar(form);
 
             var attach = () => bar.Attach(spec);
-            attach.Should().Throw<InvalidOperationException>();
+            attach.Should().Throw<ArgumentException>();
 
             // Nothing was registered, so teardown must be a silent no-op rather than a throw.
             var dispose = bar.Dispose;

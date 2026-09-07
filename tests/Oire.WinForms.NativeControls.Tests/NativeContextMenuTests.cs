@@ -83,7 +83,7 @@ public class NativeContextMenuTests {
                 .Add("&Open", NoOp)
                 .Add("&Order", NoOp));
 
-            act.Should().Throw<InvalidOperationException>().WithMessage("*Mnemonic 'O'*");
+            act.Should().Throw<ArgumentException>().WithMessage("*Mnemonic 'O'*");
         });
     }
 
@@ -94,7 +94,7 @@ public class NativeContextMenuTests {
                 .AddRadio("&Tree", "mode", isChecked: true, NoOp)
                 .AddRadio("&Flat", "mode", isChecked: true, NoOp));
 
-            act.Should().Throw<InvalidOperationException>().WithMessage("*at most one may be checked*");
+            act.Should().Throw<ArgumentException>().WithMessage("*at most one may be checked*");
         });
     }
 

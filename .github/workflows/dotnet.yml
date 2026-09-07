@@ -9,12 +9,26 @@ on:
   pull_request:
     branches: [ "master" ]
 
+# Read-only is all a build needs; the release workflow asks for more where it needs it.
+permissions:
+  contents: read
+
+# A rapid series of pushes only needs the newest one built. The branch ref keeps master and
+# each pull request in their own group, so one does not stop another.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   build:
 
     # Windows only, and not negotiable: the library P/Invokes user32, and the tests allocate
     # real HMENU handles and a real Form on an STA thread.
     runs-on: windows-latest
+
+    # The tests spin up real STA threads and real window handles. A hang would otherwise burn
+    # the runner's six-hour default; this suite finishes in seconds.
+    timeout-minutes: 15
 
     steps:
     - uses: actions/checkout@v7
@@ -32,3 +46,15 @@ jobs:
       run: dotnet build --no-restore
     - name: Test
       run: dotnet test --no-build --verbosity normal
+    # Release is what ships, and TreatWarningsAsErrors only applies on CI - so a warning that
+    # only appears under Release optimization would otherwise reach a tag unchallenged.
+    - name: Build (Release)
+      run: dotnet build --no-restore -c Release
+    # Rehearse the pack every time. nuget.org versions are immutable and the release workflow
+    # packs only after the tag is pushed, so without this the first exercise of every packaging
+    # property is the one run that cannot be repeated. The output is thrown away.
+    - name: Pack (rehearsal)
+      run: dotnet pack src/Oire.WinForms.NativeControls/Oire.WinForms.NativeControls.csproj --no-build -c Release -o artifacts-rehearsal
+    # Coverage is deliberately not collected. A percentage that nothing gates on and nobody
+    # reads is cost without signal, and a headline number would flatter this suite: the parts
+    # that matter most here are verified by ear, and no collector can see those at all.

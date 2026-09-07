@@ -18,6 +18,9 @@ public sealed class NativeMenuSpec {
     public IReadOnlyList<NativeMenuItemSpec> Items => _items;
 
     /// <summary>Adds a plain command item with no accelerator.</summary>
+    /// <param name="text">Display text, with an optional <c>&amp;</c> before the mnemonic letter.</param>
+    /// <param name="onClick">Runs when the item is chosen.</param>
+    /// <returns>This same spec, so calls can be chained.</returns>
     public NativeMenuSpec Add(string text, Action onClick) =>
         Add(text, shortcut: null, shortcutKeys: null, onClick);
 
@@ -25,7 +28,16 @@ public sealed class NativeMenuSpec {
     /// Adds a plain command item. Pass <paramref name="shortcutKeys"/> as null to show the
     /// accelerator text without registering the chord in the accelerator table.
     /// </summary>
+    /// <param name="text">Display text, with an optional <c>&amp;</c> before the mnemonic letter.</param>
+    /// <param name="shortcut">Accelerator text shown right-aligned, or null for none.</param>
+    /// <param name="shortcutKeys">
+    /// The chord to register in the form's accelerator table, or null to show
+    /// <paramref name="shortcut"/> without registering anything.
+    /// </param>
+    /// <param name="onClick">Runs when the item is chosen.</param>
+    /// <returns>This same spec, so calls can be chained.</returns>
     public NativeMenuSpec Add(string text, string? shortcut, Keys? shortcutKeys, Action onClick) {
+        ArgumentNullException.ThrowIfNull(text);
         ArgumentNullException.ThrowIfNull(onClick);
         _items.Add(new NativeMenuItemSpec {
             Text = text,
@@ -40,7 +52,11 @@ public sealed class NativeMenuSpec {
     /// Adds a submenu. At the top level of a menu-bar spec this becomes a bar entry
     /// (File, Edit, ...); nested inside another <see cref="AddMenu"/> it becomes a submenu.
     /// </summary>
+    /// <param name="text">Display text, with an optional <c>&amp;</c> before the mnemonic letter.</param>
+    /// <param name="build">Populates the submenu. Called immediately, not deferred.</param>
+    /// <returns>This same spec, so calls can be chained.</returns>
     public NativeMenuSpec AddMenu(string text, Action<NativeMenuSpec> build) {
+        ArgumentNullException.ThrowIfNull(text);
         ArgumentNullException.ThrowIfNull(build);
         var child = new NativeMenuSpec();
         build(child);
@@ -52,17 +68,32 @@ public sealed class NativeMenuSpec {
     }
 
     /// <summary>Adds a horizontal separator.</summary>
+    /// <returns>This same spec, so calls can be chained.</returns>
     public NativeMenuSpec AddSeparator() {
         _items.Add(new NativeMenuItemSpec { Text = string.Empty, IsSeparator = true });
         return this;
     }
 
     /// <summary>Adds an independent on/off toggle, drawn with a checkmark when checked.</summary>
+    /// <param name="text">Display text, with an optional <c>&amp;</c> before the mnemonic letter.</param>
+    /// <param name="isChecked">The initial check state.</param>
+    /// <param name="onClick">Runs when the item is chosen.</param>
+    /// <returns>This same spec, so calls can be chained.</returns>
     public NativeMenuSpec AddCheckable(string text, bool isChecked, Action onClick) =>
         AddCheckable(text, isChecked, shortcut: null, shortcutKeys: null, onClick);
 
     /// <summary>Adds an independent on/off toggle, drawn with a checkmark when checked.</summary>
+    /// <param name="text">Display text, with an optional <c>&amp;</c> before the mnemonic letter.</param>
+    /// <param name="isChecked">The initial check state.</param>
+    /// <param name="shortcut">Accelerator text shown right-aligned, or null for none.</param>
+    /// <param name="shortcutKeys">
+    /// The chord to register in the form's accelerator table, or null to show
+    /// <paramref name="shortcut"/> without registering anything.
+    /// </param>
+    /// <param name="onClick">Runs when the item is chosen.</param>
+    /// <returns>This same spec, so calls can be chained.</returns>
     public NativeMenuSpec AddCheckable(string text, bool isChecked, string? shortcut, Keys? shortcutKeys, Action onClick) {
+        ArgumentNullException.ThrowIfNull(text);
         ArgumentNullException.ThrowIfNull(onClick);
         _items.Add(new NativeMenuItemSpec {
             Text = text,
@@ -79,6 +110,11 @@ public sealed class NativeMenuSpec {
     /// Adds a member of a mutually exclusive group, drawn with a radio bullet when checked.
     /// All items sharing <paramref name="radioGroup"/> must be siblings in this same menu.
     /// </summary>
+    /// <param name="text">Display text, with an optional <c>&amp;</c> before the mnemonic letter.</param>
+    /// <param name="radioGroup">Group key. Items sharing it are mutually exclusive.</param>
+    /// <param name="isChecked">The initial check state. At most one member may start checked.</param>
+    /// <param name="onClick">Runs when the item is chosen.</param>
+    /// <returns>This same spec, so calls can be chained.</returns>
     public NativeMenuSpec AddRadio(string text, string radioGroup, bool isChecked, Action onClick) =>
         AddRadio(text, radioGroup, isChecked, shortcut: null, shortcutKeys: null, onClick);
 
@@ -86,7 +122,18 @@ public sealed class NativeMenuSpec {
     /// Adds a member of a mutually exclusive group, drawn with a radio bullet when checked.
     /// All items sharing <paramref name="radioGroup"/> must be siblings in this same menu.
     /// </summary>
+    /// <param name="text">Display text, with an optional <c>&amp;</c> before the mnemonic letter.</param>
+    /// <param name="radioGroup">Group key. Items sharing it are mutually exclusive.</param>
+    /// <param name="isChecked">The initial check state. At most one member may start checked.</param>
+    /// <param name="shortcut">Accelerator text shown right-aligned, or null for none.</param>
+    /// <param name="shortcutKeys">
+    /// The chord to register in the form's accelerator table, or null to show
+    /// <paramref name="shortcut"/> without registering anything.
+    /// </param>
+    /// <param name="onClick">Runs when the item is chosen.</param>
+    /// <returns>This same spec, so calls can be chained.</returns>
     public NativeMenuSpec AddRadio(string text, string radioGroup, bool isChecked, string? shortcut, Keys? shortcutKeys, Action onClick) {
+        ArgumentNullException.ThrowIfNull(text);
         ArgumentException.ThrowIfNullOrWhiteSpace(radioGroup);
         ArgumentNullException.ThrowIfNull(onClick);
         _items.Add(new NativeMenuItemSpec {

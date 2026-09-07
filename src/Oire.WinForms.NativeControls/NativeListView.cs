@@ -31,7 +31,16 @@ namespace Oire.WinForms.NativeControls;
 /// WinForms controls, since the child is not one of them.
 /// </para>
 /// </remarks>
+/// <remarks>
+/// Left unsealed deliberately, unlike every other public type here. A WinForms control is
+/// conventionally extensible, and the protected surface below - <see cref="DefaultSize"/>,
+/// <see cref="IsInputKey"/>, the handle and theme hooks - is the documented way to specialize
+/// one. A derived type must call the base implementation of any of these it overrides; the
+/// list window is created and torn down in them.
+/// </remarks>
 [DesignerCategory("Code")]
+[DefaultEvent(nameof(SelectedIndexChanged))]
+[DefaultProperty(nameof(Items))]
 public class NativeListView: Control {
     private readonly List<NativeListViewItem> _items = [];
     private readonly List<NativeListViewColumn> _columns = [];
@@ -44,7 +53,19 @@ public class NativeListView: Control {
     private ChildDropTarget? _dropTarget;
     private bool _multiSelect;
     private BorderStyle _borderStyle = BorderStyle.Fixed3D;
-    private int _lastSelectedIndex = -1;
+
+    // Null means "not set", which is what separates the window default below from a caller
+    // who deliberately asked for that same color. Color.Empty stores as null: WinForms treats
+    // assigning it as a reset, and Control.ResetBackColor is exactly that assignment.
+    private Color? _backColor;
+    private Color? _foreColor;
+    private Size? _defaultSize;
+
+    /// <summary>Rows a list asks room for before anything has told it how big to be.</summary>
+    private const int DefaultVisibleRows = 5;
+
+    /// <summary>Characters of width a list asks for, on the same basis.</summary>
+    private const int DefaultVisibleCharacters = 20;
 
     /// <summary>Creates an empty list.</summary>
     public NativeListView() {
@@ -70,6 +91,8 @@ public class NativeListView: Control {
     /// exists recreates the list window, because it is part of the creation style.
     /// </summary>
     [DefaultValue(false)]
+    [Category("Behavior")]
+    [Description("Whether more than one row can be selected at a time.")]
     public bool MultiSelect {
         get => _multiSelect;
         set {
@@ -133,6 +156,8 @@ public class NativeListView: Control {
     /// sits flush against its panel while its neighbors are inset, and reads as misaligned.
     /// </summary>
     [DefaultValue(BorderStyle.Fixed3D)]
+    [Category("Appearance")]
+    [Description("The border drawn around the list. Fixed3D matches a WinForms ListView.")]
     public BorderStyle BorderStyle {
         get => _borderStyle;
         set {
@@ -170,8 +195,17 @@ public class NativeListView: Control {
     /// window, not the container a reader never sees, and the base property is not virtual.
     /// Assigning through a <see cref="Control"/>-typed reference therefore sets the name
     /// without forwarding it; call <see cref="RefreshAccessibleName"/> if that happens.
+    /// <para>
+    /// Deliberately left serializable, unlike the other shadowed and collection properties on
+    /// this control: a designer that showed this in the property grid and then dropped it on
+    /// save would silently discard the one property the control exists for.
+    /// </para>
     /// </remarks>
-    [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
+    // Visible, not Hidden: a designer that showed this in the grid and then dropped it on save
+    // would silently discard the one property this control exists for.
+    [DesignerSerializationVisibility(DesignerSerializationVisibility.Visible)]
+    [Category("Accessibility")]
+    [Description("The name a screen reader announces for the list. The most important property here.")]
     public new string? AccessibleName {
         get => base.AccessibleName;
         set {
@@ -190,23 +224,36 @@ public class NativeListView: Control {
     internal bool HasWindow => _listHandle != IntPtr.Zero;
 
     /// <summary>The <c>SysListView32</c> window itself, for callers that need to talk to it.</summary>
+    /// <remarks>
+    /// <see cref="IntPtr.Zero"/> until the control has a handle, and again once it is disposed
+    /// or its handle is recreated. Read it afresh each time rather than holding on to it.
+    /// </remarks>
     [Browsable(false)]
     [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
     public IntPtr ListHandle => _listHandle;
 
     /// <summary>Raised when the set of selected rows changes.</summary>
+    [Category("Behavior")]
+    [Description("Raised when the set of selected rows changes.")]
     public event EventHandler? SelectedIndexChanged;
 
     /// <summary>Raised when a column header is clicked.</summary>
+    [Category("Action")]
+    [Description("Raised when a column header is clicked.")]
     public event EventHandler<NativeColumnClickEventArgs>? ColumnClick;
 
     /// <summary>Raised on double-click or Enter — the row the user means to open.</summary>
+    [Category("Action")]
+    [Description("Raised on double-click or Enter: the row the user means to open.")]
     public event EventHandler<NativeListViewItemEventArgs>? ItemActivate;
 
     /// <summary>Raised when the user starts dragging a row.</summary>
+    [Category("Action")]
+    [Description("Raised when the user starts dragging a row.")]
     public event EventHandler<NativeListViewItemEventArgs>? ItemDrag;
 
     /// <summary>Scrolls the row at <paramref name="index"/> into view.</summary>
+    /// <param name="index">The row to reveal. Out-of-range values are ignored.</param>
     public void EnsureVisible(int index) {
         if (_listHandle != IntPtr.Zero && index >= 0) {
             ListViewInterop.SendMessageW(_listHandle, ListViewInterop.LVM_ENSUREVISIBLE, index, IntPtr.Zero);
@@ -245,10 +292,14 @@ public class NativeListView: Control {
         ListViewInterop.SendMessageW(_listHandle, ListViewInterop.LVM_SETITEMSTATE, -1, ref state);
     }
 
-    /// <summary>The row at a point in this control's client coordinates, or null.</summary>
+    /// <inheritdoc cref="GetItemAt(Point)" />
+    /// <param name="x">Client-coordinate x.</param>
+    /// <param name="y">Client-coordinate y.</param>
     public NativeListViewItem? GetItemAt(int x, int y) => GetItemAt(new Point(x, y));
 
-    /// <summary>The row at a point in this control's client coordinates, or null.</summary>
+    /// <summary>The row at a point in this control's client coordinates.</summary>
+    /// <param name="clientPoint">The point to test.</param>
+    /// <returns>The row under the point, or null when it is not on one.</returns>
     public NativeListViewItem? GetItemAt(Point clientPoint) {
         if (_listHandle == IntPtr.Zero) {
             return null;
@@ -268,6 +319,8 @@ public class NativeListView: Control {
     /// The bounds of a row in this control's client coordinates, or an empty rectangle when
     /// there is no such row.
     /// </summary>
+    /// <param name="index">The row to measure.</param>
+    /// <returns>The row's bounds, or <see cref="Rectangle.Empty"/> when there is no such row.</returns>
     public Rectangle GetItemBounds(int index) {
         if (_listHandle == IntPtr.Zero || index < 0) {
             return Rectangle.Empty;
@@ -284,30 +337,39 @@ public class NativeListView: Control {
     }
 
     /// <summary>
-    /// Draws the insertion mark before or after a row — the drop indicator for a reorder.
+    /// The list's background. Both colors are pushed into the list window, which paints itself
+    /// and ignores the managed control's colors otherwise.
     /// </summary>
-    public void SetInsertionMark(int index, bool after) {
-        if (_listHandle == IntPtr.Zero) {
-            return;
+    /// <remarks>
+    /// Defaults to <see cref="SystemColors.Window"/> rather than inheriting the parent's, which
+    /// is what a WinForms <c>ListView</c> does too: a list is a data surface, not a panel, and
+    /// a list wearing the dialog's gray reads as disabled.
+    /// </remarks>
+    [Category("Appearance")]
+    [Description("The list background. Follows the system theme unless assigned.")]
+    public override Color BackColor {
+        get => _backColor ?? SystemColors.Window;
+        set {
+            _backColor = value.IsEmpty ? null : value;
+            base.BackColor = value;
+            ApplyColors();
         }
-
-        var mark = new ListViewInterop.LVINSERTMARK {
-            CbSize = (uint)Marshal.SizeOf<ListViewInterop.LVINSERTMARK>(),
-            DwFlags = after ? ListViewInterop.LVIM_AFTER : 0,
-            Item = index,
-        };
-
-        ListViewInterop.SendMessageW(_listHandle, ListViewInterop.LVM_SETINSERTMARK, IntPtr.Zero, ref mark);
     }
 
-    /// <summary>Removes the insertion mark.</summary>
-    public void ClearInsertionMark() => SetInsertionMark(-1, after: false);
-
-    /// <summary>Rows a list asks room for before anything has told it how big to be.</summary>
-    private const int DefaultVisibleRows = 5;
-
-    /// <summary>Characters of width a list asks for, on the same basis.</summary>
-    private const int DefaultVisibleCharacters = 20;
+    /// <summary>The list's text color. Defaults to <see cref="SystemColors.WindowText"/>.</summary>
+    /// <remarks>
+    /// A per-row <see cref="NativeListViewItem.ForeColor"/> overrides this for that row.
+    /// </remarks>
+    [Category("Appearance")]
+    [Description("The list text color. Follows the system theme unless assigned.")]
+    public override Color ForeColor {
+        get => _foreColor ?? SystemColors.WindowText;
+        set {
+            _foreColor = value.IsEmpty ? null : value;
+            base.ForeColor = value;
+            ApplyColors();
+        }
+    }
 
     /// <summary>
     /// The size the control asks for when nothing else decides, measured from the current
@@ -323,13 +385,22 @@ public class NativeListView: Control {
     /// </remarks>
     protected override Size DefaultSize {
         get {
+            // Layout reads this repeatedly, and measuring text is not free. It only changes
+            // with the font, which clears the cache on its way through OnFontChanged.
+            if (_defaultSize is { } cached) {
+                return cached;
+            }
+
             var row = Math.Max(FontHeight, 1);
             var sample = new string('0', DefaultVisibleCharacters);
 
             // A header and a handful of rows tall; a sample line wide.
-            return new Size(
+            var size = new Size(
                 TextRenderer.MeasureText(sample, Font).Width,
                 row * (DefaultVisibleRows + 1));
+
+            _defaultSize = size;
+            return size;
         }
     }
 
@@ -396,7 +467,23 @@ public class NativeListView: Control {
     /// <inheritdoc />
     protected override void OnFontChanged(EventArgs e) {
         base.OnFontChanged(e);
+        _defaultSize = null;
         ApplyFont();
+    }
+
+    /// <summary>
+    /// Follows a theme change - light to dark, or into and out of high contrast - which
+    /// arrives long after the window was created and its colors first pushed.
+    /// </summary>
+    /// <remarks>
+    /// Both halves have to be redone. The colors are read afresh from
+    /// <see cref="SystemColors"/>, which WinForms remaps for the application's color mode, and
+    /// the visual style has to be swapped for the variant matching the new mode.
+    /// </remarks>
+    protected override void OnSystemColorsChanged(EventArgs e) {
+        base.OnSystemColorsChanged(e);
+        ApplyWindowTheme();
+        ApplyColors();
     }
 
     /// <inheritdoc />
@@ -488,15 +575,111 @@ public class NativeListView: Control {
         }
     }
 
-    internal int GetColumnWidth(int index) =>
+    /// <summary>
+    /// Changes one column's text alignment in place, leaving the rest of its format alone.
+    /// </summary>
+    /// <remarks>
+    /// Read, modify, write rather than a plain write: the sort arrow lives in the same format
+    /// word as the alignment bits, so assigning the alignment wholesale would silently clear
+    /// an arrow that <see cref="UpdateSortIndicator"/> had put there.
+    /// </remarks>
+    internal void UpdateColumnAlignment(int index, NativeColumnAlignment alignment) {
+        if (_listHandle == IntPtr.Zero || index < 0) {
+            return;
+        }
+
+        var native = new ListViewInterop.LVCOLUMNW { Mask = ListViewInterop.LVCF_FMT };
+        if (ListViewInterop.SendMessageW(
+                _listHandle, ListViewInterop.LVM_GETCOLUMNW, index, ref native) == IntPtr.Zero) {
+            return;
+        }
+
+        native.Mask = ListViewInterop.LVCF_FMT;
+        native.Fmt = (native.Fmt & ~ListViewInterop.LVCFMT_JUSTIFYMASK) | ToColumnFormat(alignment);
+        ListViewInterop.SendMessageW(_listHandle, ListViewInterop.LVM_SETCOLUMNW, index, ref native);
+    }
+
+    /// <summary>
+    /// The alignment a column is actually drawn with, or null when there is no window to ask.
+    /// </summary>
+    /// <remarks>
+    /// Read back rather than remembered, as <see cref="GetColumnWidth"/> is, so the property
+    /// cannot drift from the control: a rejected update reports the alignment still in force
+    /// instead of the one that failed to take. It also tells the truth about column zero,
+    /// which a report-mode list always draws left-aligned whatever it is told.
+    /// </remarks>
+    internal NativeColumnAlignment? GetColumnAlignment(int index) {
+        if (_listHandle == IntPtr.Zero || index < 0) {
+            return null;
+        }
+
+        var native = new ListViewInterop.LVCOLUMNW { Mask = ListViewInterop.LVCF_FMT };
+        if (ListViewInterop.SendMessageW(
+                _listHandle, ListViewInterop.LVM_GETCOLUMNW, index, ref native) == IntPtr.Zero) {
+            return null;
+        }
+
+        return (native.Fmt & ListViewInterop.LVCFMT_JUSTIFYMASK) switch {
+            ListViewInterop.LVCFMT_RIGHT => NativeColumnAlignment.Right,
+            ListViewInterop.LVCFMT_CENTER => NativeColumnAlignment.Center,
+            _ => NativeColumnAlignment.Left,
+        };
+    }
+
+    /// <summary>The Win32 format bits for a column alignment.</summary>
+    private static int ToColumnFormat(NativeColumnAlignment alignment) => alignment switch {
+        NativeColumnAlignment.Right => ListViewInterop.LVCFMT_RIGHT,
+        NativeColumnAlignment.Center => ListViewInterop.LVCFMT_CENTER,
+        _ => ListViewInterop.LVCFMT_LEFT,
+    };
+
+    /// <summary>
+    /// The width the control is actually using, or null when there is no window to ask.
+    /// </summary>
+    /// <remarks>
+    /// Nullable rather than zero. A column added before the handle exists - which is the usual
+    /// order, since controls are populated in a constructor and realized later - would otherwise
+    /// report a width of zero instead of the width it was given, and an auto-sizing column would
+    /// report zero rather than the negative sentinel the caller passed in.
+    /// </remarks>
+    internal int? GetColumnWidth(int index) =>
         _listHandle == IntPtr.Zero || index < 0
-            ? 0
+            ? null
             : (int)ListViewInterop.SendMessageW(_listHandle, ListViewInterop.LVM_GETCOLUMNWIDTH, index, IntPtr.Zero);
 
     internal void SetColumnWidth(int index, int width) {
         if (_listHandle != IntPtr.Zero && index >= 0) {
             ListViewInterop.SendMessageW(_listHandle, ListViewInterop.LVM_SETCOLUMNWIDTH, index, width);
         }
+    }
+
+    /// <summary>
+    /// The sort arrow the header is actually drawing, or null when there is no header to ask.
+    /// </summary>
+    internal NativeSortOrder? GetSortIndicator(int index) {
+        if (_listHandle == IntPtr.Zero || index < 0) {
+            return null;
+        }
+
+        var header = ListViewInterop.SendMessageW(
+            _listHandle, ListViewInterop.LVM_GETHEADER, IntPtr.Zero, IntPtr.Zero);
+        if (header == IntPtr.Zero) {
+            return null;
+        }
+
+        var item = new ListViewInterop.HDITEMW { Mask = ListViewInterop.HDI_FORMAT };
+        if (ListViewInterop.SendMessageW(
+                header, ListViewInterop.HDM_GETITEMW, index, ref item) == IntPtr.Zero) {
+            return null;
+        }
+
+        if ((item.Fmt & ListViewInterop.HDF_SORTUP) != 0) {
+            return NativeSortOrder.Ascending;
+        }
+
+        return (item.Fmt & ListViewInterop.HDF_SORTDOWN) != 0
+            ? NativeSortOrder.Descending
+            : NativeSortOrder.None;
     }
 
     internal void UpdateSortIndicator(int index, NativeSortOrder order) {
@@ -527,7 +710,7 @@ public class NativeListView: Control {
             return;
         }
 
-        var buffer = Marshal.StringToCoTaskMemUni(item.Cells.Count > 0 ? item.Cells[0] : String.Empty);
+        var buffer = Marshal.StringToCoTaskMemUni(item.Cells.Count > 0 ? item.Cells[0] : string.Empty);
         try {
             var native = new ListViewInterop.LVITEMW {
                 Mask = ListViewInterop.LVIF_TEXT,
@@ -570,11 +753,7 @@ public class NativeListView: Control {
                 Text = buffer,
                 Cx = column.InitialWidth,
                 SubItem = index,
-                Fmt = column.Alignment switch {
-                    NativeColumnAlignment.Right => ListViewInterop.LVCFMT_RIGHT,
-                    NativeColumnAlignment.Center => ListViewInterop.LVCFMT_CENTER,
-                    _ => ListViewInterop.LVCFMT_LEFT,
-                },
+                Fmt = ToColumnFormat(column.Alignment),
             };
 
             ListViewInterop.SendMessageW(_listHandle, ListViewInterop.LVM_INSERTCOLUMNW, index, ref native);
@@ -645,13 +824,9 @@ public class NativeListView: Control {
             (IntPtr)(ListViewInterop.LVS_EX_FULLROWSELECT | ListViewInterop.LVS_EX_DOUBLEBUFFER |
                 ListViewInterop.LVS_EX_LABELTIP));
 
-        // Without this the control keeps its pre-Vista appearance: no hover highlight, a
-        // header that looks like another row, and the older row metrics. It is what a
-        // WinForms ListView does for itself, and the reason one looks current.
-        // A failure only means the control keeps the classic look; it is not worth failing over.
-        _ = ListViewInterop.SetWindowTheme(_listHandle, "Explorer", null);
-
+        ApplyWindowTheme();
         ApplyFont();
+        ApplyColors();
         ApplyAccessibleName();
 
         _childSubclass = new ChildMessageFilter(this);
@@ -731,11 +906,52 @@ public class NativeListView: Control {
     }
 
     private void ApplyAccessibleName() {
-        if (_listHandle != IntPtr.Zero && !String.IsNullOrEmpty(AccessibleName)) {
+        if (_listHandle != IntPtr.Zero) {
             // The MSAA proxy for a list view reports the window text as the control's name,
-            // which is not otherwise reachable on a bare common control.
-            ListViewInterop.SetWindowTextW(_listHandle, AccessibleName);
+            // which is not otherwise reachable on a bare common control. An empty string is
+            // pushed too: clearing the name has to reach the window, or a reader goes on
+            // announcing the name that was cleared.
+            ListViewInterop.SetWindowTextW(_listHandle, AccessibleName ?? string.Empty);
         }
+    }
+
+    /// <summary>
+    /// Applies the visual style the list draws its parts with, in the variant matching the
+    /// application's current color mode.
+    /// </summary>
+    /// <remarks>
+    /// Without this the control keeps its pre-Vista appearance: no hover highlight, a header
+    /// that looks like another row, and the older row metrics. It is what a WinForms
+    /// <c>ListView</c> does for itself, and the reason one looks current. The
+    /// <c>DarkMode_</c> variant is what makes the header, the scroll bars and the hover
+    /// highlight dark; colors alone leave those three light on a dark list. A failure only
+    /// means the control keeps the classic look, which is not worth failing over.
+    /// </remarks>
+    private void ApplyWindowTheme() {
+        if (_listHandle == IntPtr.Zero) {
+            return;
+        }
+
+        _ = ListViewInterop.SetWindowTheme(
+            _listHandle, Application.IsDarkModeEnabled ? "DarkMode_Explorer" : "Explorer", null);
+    }
+
+    /// <summary>
+    /// Pushes <see cref="Control.BackColor"/> and <see cref="Control.ForeColor"/> into the
+    /// list window, which paints itself and would otherwise ignore both.
+    /// </summary>
+    private void ApplyColors() {
+        if (_listHandle == IntPtr.Zero) {
+            return;
+        }
+
+        var back = (IntPtr)ToColorRef(BackColor);
+        ListViewInterop.SendMessageW(_listHandle, ListViewInterop.LVM_SETBKCOLOR, IntPtr.Zero, back);
+        ListViewInterop.SendMessageW(_listHandle, ListViewInterop.LVM_SETTEXTBKCOLOR, IntPtr.Zero, back);
+        ListViewInterop.SendMessageW(
+            _listHandle, ListViewInterop.LVM_SETTEXTCOLOR, IntPtr.Zero, (IntPtr)ToColorRef(ForeColor));
+
+        Invalidate(true);
     }
 
     private bool HasState(int index, uint state) {
@@ -784,12 +1000,10 @@ public class NativeListView: Control {
                     var info = Marshal.PtrToStructure<ListViewInterop.NMLISTVIEW>(lParam);
                     var wasSelected = (info.OldState & ListViewInterop.LVIS_SELECTED) != 0;
                     var isSelected = (info.NewState & ListViewInterop.LVIS_SELECTED) != 0;
-                    if (wasSelected != isSelected) {
-                        var focused = FocusedItem?.Index ?? -1;
-                        if (focused != _lastSelectedIndex || !isSelected) {
-                            _lastSelectedIndex = focused;
-                        }
 
+                    // The notification fires for every state bit the control touches; only a
+                    // change in the selected bit is a selection change.
+                    if (wasSelected != isSelected) {
                         SelectedIndexChanged?.Invoke(this, EventArgs.Empty);
                     }
 
