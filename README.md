@@ -223,13 +223,17 @@ carry covers what a list-driven application actually uses:
 
 * **Content** — `Items`, `Columns`, and per-column `Width` with the `AutoSizeToContent` /
   `AutoSizeToHeader` constants for widths measured rather than guessed.
-* **Selection** — `SelectedItems`, `FocusedItem`, `MultiSelect`, `ClearSelection`,
-  `EnsureVisible`, and `Selected` / `Focused` on a row, both settable before the control has
-  a window so a list populated during form construction comes up on the right row.
+* **Selection** — `SelectedItems`, `FocusedItem`, `ClearSelection`, `EnsureVisible`, and
+  `Selected` / `Focused` on a row, both settable before the control has a window so a list
+  populated during form construction comes up on the right row.
+* **Multiple selection** — `MultiSelect`, off by default as on a WinForms `ListView`. Turning
+  it on gives the usual keyboard vocabulary: Shift with the arrows to extend, Ctrl with them to
+  move the focus without extending, Ctrl+Space to add the focused row. Screen readers announce
+  all three correctly, so this is a mode worth using rather than one to avoid.
 * **Appearance** — `BackColor` and `ForeColor`, per-row `ForeColor`, `BorderStyle`, and a
-  column's `Alignment` and `SortOrder` arrow, both settable at any time. Left alone, the colors follow the system
-  theme: light, dark and high contrast, and a switch between them while the application is
-  running.
+  column's `Alignment` and `SortOrder` arrow, both settable at any time. Left alone, the colors
+  follow the system theme: light, dark and high contrast, and a switch between them while the
+  application is running.
 * **Hit testing and layout** — `GetItemAt`, `GetItemBounds`, `SetInsertionMark` /
   `ClearInsertionMark` for a drop indicator during a reorder, and `BeginUpdate` / `EndUpdate`
   for bulk changes.
@@ -296,11 +300,23 @@ French and Ukrainian catalogs.
 The menus are verified by ear with **JAWS**, **NVDA** and **Narrator**, and behave as expected
 on all three.
 
-`NativeListView` is verified on the same three. Every WinForms-based variation reads only the
+`NativeListView` is verified on the same three, in single and multiple selection alike.
+Extending a selection, moving the focus without extending it, and selecting every row at once
+are all announced correctly. The one shortfall is that no reader names the mode: a stock list
+box is announced as a "multi select list box" and there is no equivalent wording for a list
+view, so the behavior is described well while the mode itself never is. Every WinForms-based variation reads only the
 first column on all of them; the real `SysListView32` reads every column on all of them.
 Reports from other configurations are welcome.
 
-RTL rendering is implemented but has not been verified against a real RTL locale.
+Right-to-left rendering is verified against a real right-to-left catalog: the sample's Hebrew
+translation, with Hebrew text in the menus, the column headers and the rows, and Hebrew
+mnemonics through the collision validator. Submenu direction and the mirrored tree beside the
+list both behave, the latter only once the tree is told to mirror — `RightToLeft` is an ambient
+property and `RightToLeftLayout` is not, so a control that right-aligns its text has not
+necessarily flipped its arrow keys.
+
+What has not been checked is a machine whose Windows display language is itself right-to-left,
+which is a different test from switching language inside a left-to-right system.
 
 ## Building from source
 
