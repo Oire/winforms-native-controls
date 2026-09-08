@@ -192,6 +192,12 @@ internal static class ListViewInterop {
     internal const int CDRF_NEWFONT = 0x00000002;
     internal const int CDRF_NOTIFYITEMDRAW = 0x00000020;
 
+    /// <summary>Draw stage after the control has finished painting everything else.</summary>
+    internal const uint CDDS_POSTPAINT = 0x00000002;
+
+    /// <summary>Asks for the post-paint callback, which is where an overlay belongs.</summary>
+    internal const int CDRF_NOTIFYPOSTPAINT = 0x00000010;
+
     // --- Structs -------------------------------------------------------------------------
 
     [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]

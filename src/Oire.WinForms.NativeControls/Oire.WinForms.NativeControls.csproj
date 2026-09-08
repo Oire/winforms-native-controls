@@ -78,7 +78,8 @@
                <PackageValidationBaselineVersion>1.0.0</PackageValidationBaselineVersion>
              Thereafter bump the baseline to the newest published version whenever a deliberate
              breaking change ships in a new major. -->
-        <EnablePackageValidation>false</EnablePackageValidation>
+        <EnablePackageValidation>true</EnablePackageValidation>
+        <PackageValidationBaselineVersion>1.0.0</PackageValidationBaselineVersion>
     </PropertyGroup>
 
     <PropertyGroup Condition="'$(Configuration)' == 'Debug'">

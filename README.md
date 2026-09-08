@@ -230,8 +230,9 @@ carry covers what a list-driven application actually uses:
   column's `Alignment` and `SortOrder` arrow, both settable at any time. Left alone, the colors follow the system
   theme: light, dark and high contrast, and a switch between them while the application is
   running.
-* **Hit testing and layout** — `GetItemAt`, `GetItemBounds` (which is what a drop indicator is
-  positioned against), and `BeginUpdate` / `EndUpdate` for bulk changes.
+* **Hit testing and layout** — `GetItemAt`, `GetItemBounds`, `SetInsertionMark` /
+  `ClearInsertionMark` for a drop indicator during a reorder, and `BeginUpdate` / `EndUpdate`
+  for bulk changes.
 * **Events** — `SelectedIndexChanged`, `ColumnClick`, `ItemActivate`, `ItemDrag`, and the
   ordinary `DragEnter` / `DragOver` / `DragLeave` / `DragDrop` for drops on the list itself.
 
