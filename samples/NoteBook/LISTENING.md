@@ -94,7 +94,40 @@ window that WinForms does not own. This is the step most likely to fail.
 - Right-click a **column header**. A different menu should open — the one about columns.
 - Right-click a **row**. The note menu should open instead.
 
-## 6. A language change, and right to left
+## 6. Multiple selection
+
+Open. The list is multi-select and nothing here is settled - this step exists to find out what
+readers actually do with it, not to confirm something already known. Whatever you hear is the
+result, including "nothing".
+
+- With focus on a row, hold **Shift** and press **Down arrow** to extend the selection. You
+  should hear the row you moved to. Whether you also hear that it was *added to* a selection,
+  and whether any reader tells you how many rows are now selected, is exactly what is being
+  measured.
+- Press **Ctrl+Down arrow** a few times to move the focus without changing the selection, then
+  **Ctrl+Space** to add that row. A reader that does not distinguish these two is telling you
+  something worth writing down: the focus rectangle and the selection are separate things, and
+  a user who cannot hear which one moved cannot use this mode.
+- Open the context menu with **Shift+F10** and choose **Select All**. Listen for whether the
+  new state is announced at all, or whether the list goes silent after a command that changed
+  every row in it.
+- Shift-click and Ctrl-click with the mouse and compare. Readers sometimes announce a
+  mouse-driven selection change differently from a keyboard-driven one.
+
+Worth trying on all three readers, because this is the area where they diverge most.
+
+What has been heard so far, September 2026: selection behavior is announced well, on all three.
+Extending, moving the focus without extending, and selecting everything at once all come across.
+
+The one gap is the label rather than the behavior. Readers announce a stock multi-select list
+box as a "multi select list box", and there appears to be no equivalent wording for a list view
+from any of them - so the mode itself is never named, however well its effects are described.
+Whether that can be influenced from the control is unresolved: a multi-select list view, a
+single-select one and a multi-select list box were all measured reporting identical MSAA state,
+which suggests readers decide this from the control class rather than from anything the control
+reports. If you can confirm that with a speech viewer, it is worth knowing.
+
+## 7. A language change, and right to left
 
 This is the part of the library with the least real-world verification, and the reason the
 sample ships a Hebrew catalog rather than only a layout switch: mirroring English text proves
