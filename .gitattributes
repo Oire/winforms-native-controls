@@ -1,7 +1,13 @@
-# .editorconfig sets end_of_line = crlf, and CI gates on `dotnet format --verify-no-changes`.
-# Without this file that check depends on each contributor's core.autocrlf setting, and a
-# clone on Linux or with autocrlf=false fails a build for a reason invisible in the diff.
-* text=auto eol=crlf
+# LF everywhere: in the repository, in the working tree, and on every platform.
+#
+# Git already stores text as LF whatever this file says, so CRLF in the working tree was only
+# ever a conversion layer, and nothing here needs it. `eol=lf` makes the checkout match the
+# storage, which means one representation instead of two.
+#
+# The explicit `eol=lf` rather than a bare `text=auto` is deliberate: `text=auto` alone gives
+# each platform its native ending, so a Windows clone would get CRLF and fail the
+# `end_of_line = lf` check that CI gates on, for a reason invisible in the diff.
+* text=auto eol=lf
 
 # Never touched by line-ending normalization.
 *.png binary
@@ -10,5 +16,11 @@
 *.nupkg binary
 *.snupkg binary
 
-# Shell scripts must keep LF or they will not run.
+# Shell scripts must keep LF or they will not run. Covered by the rule above, but stated so
+# that a future change to it cannot quietly break them.
 *.sh text eol=lf
+
+# The genuine exception, for whenever one appears: cmd.exe mis-parses an LF-only batch file
+# around labels and goto, so these are the one thing that must stay CRLF.
+*.bat text eol=crlf
+*.cmd text eol=crlf
