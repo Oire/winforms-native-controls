@@ -6,12 +6,20 @@ namespace Oire.WinForms.NativeControls;
 /// to destroy an <c>HMENU</c> Windows is still displaying.
 /// </summary>
 /// <remarks>
-/// UI-thread only by design. <c>TrackPopupMenuEx</c> runs a nested message loop on the calling
-/// thread, and every caller here is on the WinForms UI thread, so the pump serializes access
-/// and no locking is needed. The counter is nesting-aware because a popup can open a submenu
-/// popup of its own.
+/// Per-thread, because a menu is. <c>TrackPopupMenuEx</c> runs a nested message loop on the
+/// calling thread and the <c>HMENU</c> it displays belongs to that thread, so a popup being
+/// tracked on one UI thread says nothing about whether another thread may rebuild its own menus.
+/// WinForms permits more than one UI thread, each with its own pump, and a process-wide counter
+/// would have one of them refusing a legitimate rebuild because an unrelated thread happened to
+/// have a menu open.
+/// <para>
+/// Thread-static also removes the need for locking: each thread sees only its own depth, and a
+/// thread's own message pump serializes its access to it. The counter is nesting-aware because
+/// a popup can open a submenu popup of its own.
+/// </para>
 /// </remarks>
 internal static class MenuTrackingScope {
+    [ThreadStatic]
     private static int _depth;
 
     /// <summary>True while at least one popup is being tracked.</summary>

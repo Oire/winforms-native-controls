@@ -114,6 +114,10 @@ very little.
   two items answering to one key — which is the point of that check.
 - Tab into the list. Confirm the header, the row text and the column order all read
   right to left, and that arrow keys still move between rows rather than out of the list.
+- Tab to the **categories tree** and try to expand a node. **Left arrow** should open it and
+  **Right arrow** should close it — the reverse of the English layout, because a mirrored tree
+  draws its children to the left and the key that opens a node is the one pointing at them. If
+  Right still opens the node, the tree is right-aligning its text without actually mirroring.
 - Switch back to **English** the same way and confirm everything returns.
 
 Worth doing this on a machine whose Windows display language is Hebrew as well as on an

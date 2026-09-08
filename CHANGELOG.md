@@ -9,7 +9,7 @@ in a major one.
 
 ## [Unreleased]
 
-## [1.0.0] - 2026-09-07
+## [1.0.0] - 2026-09-08
 
 First stable release. The public API is settled; see the versioning note above.
 
@@ -64,6 +64,12 @@ First stable release. The public API is settled; see the versioning note above.
 
 ### Fixed
 
+- Menu tracking is per-thread rather than per-process. `TrackPopupMenuEx` runs its nested loop
+  on the calling thread and the `HMENU` it displays belongs to that thread, but the guard that
+  stops a menu being rebuilt while it is on screen used a process-wide counter. WinForms allows
+  more than one UI thread, each with its own pump, so a popup open on one of them made
+  `Rebuild` throw on another that had no menu open at all. Found by a test run that failed on
+  one machine and passed on another, which is what a race looks like.
 - `NativeListView.BackColor` and `ForeColor` did nothing. The list window paints itself, and
   nothing was ever pushed across; they are now applied with `LVM_SETBKCOLOR`,
   `LVM_SETTEXTBKCOLOR` and `LVM_SETTEXTCOLOR`. Both default to the window colors rather than

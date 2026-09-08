@@ -91,5 +91,56 @@ public class MenuRebuildTests {
         });
     }
 
+    /// <summary>
+    /// A popup being tracked on one thread must not stop another thread rebuilding its own
+    /// menus. A menu belongs to the thread that created it, so the tracking depth does too.
+    /// </summary>
+    /// <remarks>
+    /// This is a regression guard for a real CI failure. The depth used to be a plain static,
+    /// and since every test here runs on its own thread and xUnit runs test classes in
+    /// parallel, one class holding a tracking scope made an unrelated rebuild in another class
+    /// throw "Cannot rebuild the menu bar while a popup menu is open". It failed on master
+    /// while passing on the branch, which is what a race looks like.
+    /// </remarks>
+    [Fact]
+    public void Tracking_OnOneThread_DoesNotBlockAnother() {
+        using var entered = new ManualResetEventSlim();
+        using var mayLeave = new ManualResetEventSlim();
+
+        var trackingThread = new Thread(() => {
+            using (MenuTrackingScope.Enter()) {
+                MenuTrackingScope.IsTracking.Should().BeTrue("this thread is the one tracking");
+                entered.Set();
+                mayLeave.Wait(TimeSpan.FromSeconds(10));
+            }
+        });
+
+        trackingThread.SetApartmentState(ApartmentState.STA);
+        trackingThread.IsBackground = true;
+        trackingThread.Start();
+        entered.Wait(TimeSpan.FromSeconds(10)).Should().BeTrue("the other thread must get going");
+
+        try {
+            // Same moment, different thread: this one has no menu open and must be free to act.
+            MenuTrackingScope.IsTracking.Should().BeFalse("another thread's popup is not ours");
+
+            StaRunner.Run(() => {
+                using var form = new Form();
+                _ = form.Handle;
+
+                using var bar = new NativeMenuBar(form);
+                bar.Attach(new NativeMenuSpec().AddMenu("&File", file => file.Add("&New", NoOp)));
+
+                var rebuild = () => bar.Rebuild(
+                    new NativeMenuSpec().AddMenu("&Datei", file => file.Add("&Neu", NoOp)));
+
+                rebuild.Should().NotThrow("no popup is open on this thread");
+            });
+        } finally {
+            mayLeave.Set();
+            trackingThread.Join(TimeSpan.FromSeconds(10));
+        }
+    }
+
     private static void NoOp() { }
 }
