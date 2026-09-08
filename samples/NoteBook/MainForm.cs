@@ -162,6 +162,14 @@ internal sealed class MainForm: Form {
         RightToLeft = direction;
         RightToLeftLayout = Strings.IsRightToLeft;
 
+        // RightToLeft is ambient and reaches every child on its own, but RightToLeftLayout is
+        // not: it has to be set on each control that has one, or the control right-aligns its
+        // text without ever mirroring. On a tree that is not cosmetic. An unmirrored tree keeps
+        // its left-to-right key bindings, so Right arrow expands a node while the node's
+        // children are drawn to the left - the arrow key and the layout disagree, and a
+        // keyboard user is the one who pays. Mirrored, Left expands, as Windows does in Hebrew.
+        _categories.RightToLeftLayout = Strings.IsRightToLeft;
+
         _categoriesLabel.Text = Strings.Get("label.categories");
         _notesLabel.Text = Strings.Get("label.notes");
         _editorLabel.Text = Strings.Get("label.editor");
