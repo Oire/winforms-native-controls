@@ -407,6 +407,104 @@ public class NativeListViewBehaviorTests {
     [DllImport("user32.dll", CharSet = CharSet.Unicode)]
     private static extern int SendMessageW(IntPtr hWnd, uint msg, IntPtr wParam, IntPtr lParam);
 
+    /// <summary>
+    /// The drop indicator is drawn as an overlay in the control's own post-paint stage, so the
+    /// only honest test is to render the window and look at the pixels.
+    /// </summary>
+    /// <remarks>
+    /// Rendered with <c>PrintWindow</c> rather than captured from the screen: a build agent has
+    /// no interactive desktop, and a screen capture there returns black.
+    /// </remarks>
+    [Fact]
+    public void InsertionMark_WhenSet_IsDrawnAtTheRowEdge() {
+        StaRunner.Run(() => {
+            using var form = new Form { ClientSize = new Size(420, 260) };
+            using var list = Build();
+            list.Dock = DockStyle.Fill;
+            form.Controls.Add(list);
+            form.Show();
+            try {
+                var row = list.GetItemBounds(1);
+                row.IsEmpty.Should().BeFalse();
+
+                HighlightPixelsNear(list, row.Bottom).Should().Be(0, "nothing is marked yet");
+
+                list.SetInsertionMark(1, after: true);
+
+                HighlightPixelsNear(list, row.Bottom)
+                    .Should().BeGreaterThan(0, "the mark must be drawn at the row edge");
+
+                list.ClearInsertionMark();
+
+                HighlightPixelsNear(list, row.Bottom).Should().Be(0, "clearing must erase it");
+            } finally {
+                form.Close();
+            }
+        });
+    }
+
+    /// <summary>An index no row answers to must draw nothing rather than throw or smear.</summary>
+    [Fact]
+    public void InsertionMark_WithAnOutOfRangeIndex_DrawsNothing() {
+        StaRunner.Run(() => {
+            using var form = new Form { ClientSize = new Size(420, 260) };
+            using var list = Build();
+            list.Dock = DockStyle.Fill;
+            form.Controls.Add(list);
+            form.Show();
+            try {
+                var act = () => list.SetInsertionMark(999, after: false);
+                act.Should().NotThrow();
+
+                var row = list.GetItemBounds(0);
+                HighlightPixelsNear(list, row.Top).Should().Be(0);
+            } finally {
+                form.Close();
+            }
+        });
+    }
+
+    private const uint PW_RENDERFULLCONTENT = 0x00000002;
+
+    [DllImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool PrintWindow(IntPtr hwnd, IntPtr hdcBlt, uint flags);
+
+    /// <summary>Pixels close to the highlight color within a few rows of <paramref name="y"/>.</summary>
+    private static int HighlightPixelsNear(NativeListView list, int y) {
+        using var bitmap = new Bitmap(
+            Math.Max(1, list.ClientSize.Width), Math.Max(1, list.ClientSize.Height));
+
+        using (var graphics = Graphics.FromImage(bitmap)) {
+            var hdc = graphics.GetHdc();
+            try {
+                PrintWindow(list.ListHandle, hdc, PW_RENDERFULLCONTENT);
+            } finally {
+                graphics.ReleaseHdc(hdc);
+            }
+        }
+
+        var want = SystemColors.Highlight;
+        var hits = 0;
+        for (var dy = -5; dy <= 5; dy++) {
+            var row = y + dy;
+            if (row < 0 || row >= bitmap.Height) {
+                continue;
+            }
+
+            for (var x = 0; x < bitmap.Width; x++) {
+                var pixel = bitmap.GetPixel(x, row);
+                if (Math.Abs(pixel.R - want.R) < 24
+                    && Math.Abs(pixel.G - want.G) < 24
+                    && Math.Abs(pixel.B - want.B) < 24) {
+                    hits++;
+                }
+            }
+        }
+
+        return hits;
+    }
+
     private static NativeListView Build() {
         var list = new NativeListView { AccessibleName = "Notes" };
 

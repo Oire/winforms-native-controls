@@ -59,6 +59,8 @@ public class NativeListView: Control {
     // assigning it as a reset, and Control.ResetBackColor is exactly that assignment.
     private Color? _backColor;
     private Color? _foreColor;
+    private int _insertionIndex = -1;
+    private bool _insertionAfter;
     private Size? _defaultSize;
 
     /// <summary>Rows a list asks room for before anything has told it how big to be.</summary>
@@ -276,6 +278,46 @@ public class NativeListView: Control {
         ListViewInterop.SendMessageW(_listHandle, ListViewInterop.WM_SETREDRAW, 1, IntPtr.Zero);
         Invalidate(true);
     }
+
+    /// <summary>
+    /// Draws a drop indicator across the edge of a row: the line that tells a dragging user
+    /// where the thing they are holding is about to land.
+    /// </summary>
+    /// <param name="index">
+    /// The row to mark against, or -1 for no mark, which is what <see cref="ClearInsertionMark"/>
+    /// passes.
+    /// </param>
+    /// <param name="after">True to draw below the row, false to draw above it.</param>
+    /// <remarks>
+    /// <para>
+    /// Drawn here rather than left to the application, because an application has no way to do
+    /// it. The list is a native child window that paints itself and covers this control, so a
+    /// consumer never receives a paint event over it; only the code that already answers the
+    /// control's draw notifications can put anything on top.
+    /// </para>
+    /// <para>
+    /// Not the control's own <c>LVM_SETINSERTMARK</c>, which is refused outright in report view
+    /// - it returns FALSE and stores nothing. This is an overlay drawn at the post-paint stage,
+    /// in <see cref="SystemColors.Highlight"/> so it follows the theme, including high contrast,
+    /// and scaled by DPI so it stays visible on a dense display.
+    /// </para>
+    /// </remarks>
+    public void SetInsertionMark(int index, bool after) {
+        var previous = _insertionIndex;
+        if (previous == index && _insertionAfter == after) {
+            return;
+        }
+
+        _insertionIndex = index;
+        _insertionAfter = after;
+
+        // Both the old line and the new one need repainting, and they are rarely the same row.
+        InvalidateRow(previous);
+        InvalidateRow(index);
+    }
+
+    /// <summary>Removes the drop indicator.</summary>
+    public void ClearInsertionMark() => SetInsertionMark(-1, after: false);
 
     /// <summary>Deselects every row.</summary>
     public void ClearSelection() {
@@ -1051,13 +1093,25 @@ public class NativeListView: Control {
         var draw = Marshal.PtrToStructure<ListViewInterop.NMLVCUSTOMDRAW>(lParam);
 
         switch (draw.Nmcd.DrawStage) {
-            case ListViewInterop.CDDS_PREPAINT:
-                // Ask for per-row callbacks only when some row has something to say. Otherwise
-                // every row of every repaint would cross into managed code to answer "nothing".
-                result = _items.Exists(item => item.ForeColor is not null)
-                    ? ListViewInterop.CDRF_NOTIFYITEMDRAW
-                    : ListViewInterop.CDRF_DODEFAULT;
+            case ListViewInterop.CDDS_PREPAINT: {
+                    // Ask for callbacks only when there is something to answer with. Otherwise
+                    // every row of every repaint would cross into managed code to say "nothing".
+                    var flags = ListViewInterop.CDRF_DODEFAULT;
 
+                    if (_items.Exists(item => item.ForeColor is not null)) {
+                        flags |= ListViewInterop.CDRF_NOTIFYITEMDRAW;
+                    }
+
+                    if (HasInsertionMark) {
+                        flags |= ListViewInterop.CDRF_NOTIFYPOSTPAINT;
+                    }
+
+                    result = flags;
+                    return true;
+                }
+
+            case ListViewInterop.CDDS_POSTPAINT:
+                DrawInsertionMark(draw.Nmcd.Hdc);
                 return true;
 
             case ListViewInterop.CDDS_ITEMPREPAINT: {
@@ -1077,6 +1131,39 @@ public class NativeListView: Control {
             default:
                 return false;
         }
+    }
+
+    /// <summary>Whether a drop indicator is set and still points at a row that exists.</summary>
+    private bool HasInsertionMark => _insertionIndex >= 0 && _insertionIndex < _items.Count;
+
+    /// <summary>
+    /// Draws the drop indicator across the row edge, with the end caps that make it read as a
+    /// line between rows rather than an underline belonging to one of them.
+    /// </summary>
+    private void DrawInsertionMark(IntPtr hdc) {
+        if (!HasInsertionMark || hdc == IntPtr.Zero) {
+            return;
+        }
+
+        var bounds = GetItemBounds(_insertionIndex);
+        if (bounds.IsEmpty) {
+            return;
+        }
+
+        var y = _insertionAfter ? bounds.Bottom : bounds.Top;
+
+        // Scale with the display, and keep the line inside the control so a mark on the last
+        // row is not painted half outside it.
+        var thickness = Math.Max(2, (int)Math.Round(2 * (DeviceDpi / 96.0)));
+        var cap = thickness * 2;
+        y = Math.Clamp(y, thickness, Math.Max(thickness, ClientSize.Height - thickness));
+
+        using var graphics = Graphics.FromHdc(hdc);
+        using var brush = new SolidBrush(SystemColors.Highlight);
+
+        graphics.FillRectangle(brush, bounds.Left, y - (thickness / 2), bounds.Width, thickness);
+        graphics.FillRectangle(brush, bounds.Left, y - cap, thickness, cap * 2);
+        graphics.FillRectangle(brush, bounds.Right - thickness, y - cap, thickness, cap * 2);
     }
 
     /// <summary><c>COLORREF</c> is 0x00BBGGRR, the reverse of the usual order.</summary>

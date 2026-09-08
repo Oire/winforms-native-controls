@@ -9,6 +9,26 @@ in a major one.
 
 ## [Unreleased]
 
+## [1.1.0] - 2026-09-08
+
+### Added
+
+- `NativeListView.SetInsertionMark` and `ClearInsertionMark` are back, and this time they draw.
+  Removed in 1.0.0 because the control's own `LVM_SETINSERTMARK` is refused in report view - it
+  returns FALSE and stores nothing - they are now an overlay painted in the control's post-paint
+  stage, in `SystemColors.Highlight` so the line follows the theme including high contrast, and
+  scaled by DPI.
+
+  This belongs in the library rather than in an application because an application cannot do it:
+  the list is a native child window that paints itself and covers the control, so a consumer
+  never receives a paint event over it. Only the code already answering the control's draw
+  notifications can put anything on top.
+
+### Changed
+
+- Package validation is enabled against the 1.0.0 baseline, so a breaking change to the public
+  surface now fails the build rather than reaching nuget.org.
+
 ## [1.0.0] - 2026-09-08
 
 First stable release. The public API is settled; see the versioning note above.
@@ -175,7 +195,8 @@ First release.
   `GridPattern.GetItem(row, column)` returns unusable elements, which breaks cell navigation on
   JAWS, NVDA and Narrator alike.
 
-[Unreleased]: https://github.com/Oire/winforms-native-controls/compare/v1.0.0...HEAD
+[Unreleased]: https://github.com/Oire/winforms-native-controls/compare/v1.1.0...HEAD
+[1.1.0]: https://github.com/Oire/winforms-native-controls/compare/v1.0.0...v1.1.0
 [1.0.0]: https://github.com/Oire/winforms-native-controls/compare/v0.2.0...v1.0.0
 [0.2.0]: https://github.com/Oire/winforms-native-controls/compare/v0.1.1...v0.2.0
 [0.1.1]: https://github.com/Oire/winforms-native-controls/compare/v0.1.0...v0.1.1
