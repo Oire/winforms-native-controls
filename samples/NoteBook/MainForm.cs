@@ -24,6 +24,10 @@ namespace NoteBook;
 internal sealed class MainForm: Form {
     private readonly TreeView _categories = new();
     private readonly NativeListView _notes = new();
+    private readonly ImageList _noteImages = new() {
+        ColorDepth = ColorDepth.Depth32Bit,
+        ImageSize = new Size(16, 16),
+    };
     private readonly TextBox _editor = new();
     private readonly Label _categoriesLabel = new();
     private readonly Label _notesLabel = new();
@@ -34,6 +38,7 @@ internal sealed class MainForm: Form {
     private NativeContextMenu? _columnMenu;
 
     private bool _showModified = true;
+    private bool _showImages = true;
 
     public MainForm() {
         // The manifest declares PerMonitorV2, so the form has to scale with the font or the
@@ -46,6 +51,8 @@ internal sealed class MainForm: Form {
         MinimumSize = new Size(640, 400);
         StartPosition = FormStartPosition.CenterScreen;
 
+        // A decorative note icon. Titles and columns carry all meaningful information.
+        _noteImages.Images.Add(SystemIcons.Application);
         BuildLayout();
         Strings.Changed += OnLanguageChanged;
         ApplyLanguage();
@@ -75,6 +82,10 @@ internal sealed class MainForm: Form {
             _menuBar?.Dispose();
             _noteMenu?.Dispose();
             _columnMenu?.Dispose();
+
+            // NativeListView borrows its image list; the form owns and disposes it.
+            _notes.SmallImageList = null;
+            _noteImages.Dispose();
         }
 
         base.Dispose(disposing);
@@ -119,6 +130,7 @@ internal sealed class MainForm: Form {
         _notes.Dock = DockStyle.Fill;
         _notes.TabIndex = 3;
         _notes.MultiSelect = true;
+        _notes.SmallImageList = _noteImages;
         _notes.Columns.Add(new NativeListViewColumn("", NativeListViewColumn.AutoSizeToContent));
         _notes.Columns.Add(new NativeListViewColumn("", 70, NativeColumnAlignment.Right));
         _notes.Columns.Add(new NativeListViewColumn("", 140));
@@ -268,6 +280,7 @@ internal sealed class MainForm: Form {
                 words[key].ToString(),
                 _showModified ? modified[key] : string.Empty) {
                 Tag = Strings.Get($"note.{key}.body"),
+                ImageIndex = _showImages ? 0 : -1,
             };
         }
     }
@@ -300,6 +313,7 @@ internal sealed class MainForm: Form {
                     shortcutKeys: null, Close))
             .AddMenu(Strings.Get("menu.view"), view => view
                 .AddCheckable(Strings.Get("menu.view.modified"), _showModified, ToggleModifiedColumn)
+                .AddCheckable(Strings.Get("menu.view.images"), _showImages, ToggleNoteImages)
                 .AddSeparator()
                 .AddMenu(Strings.Get("menu.view.language"), language => language
                     .AddRadio(Strings.Get("menu.view.language.english"), "language",
@@ -361,6 +375,15 @@ internal sealed class MainForm: Form {
     private void ToggleModifiedColumn() {
         _showModified = !_showModified;
         PopulateNotes();
+        _menuBar?.Rebuild(BuildMenuSpec());
+    }
+
+    private void ToggleNoteImages() {
+        _showImages = !_showImages;
+        // Update existing rows so selection, focus and scroll position stay put.
+        foreach (var item in _notes.Items) {
+            item.ImageIndex = _showImages ? 0 : -1;
+        }
         _menuBar?.Rebuild(BuildMenuSpec());
     }
 

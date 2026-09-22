@@ -90,6 +90,11 @@ internal static class ListViewInterop {
     internal const uint LVS_REPORT = 0x0001;
     internal const uint LVS_SINGLESEL = 0x0004;
 
+    // ImageList owns its HIMAGELIST; destroying a list window must not destroy shared images.
+    internal const uint LVS_SHAREIMAGELISTS = 0x0040;
+    internal const int LVSIL_SMALL = 1;
+    internal const int I_IMAGENONE = -2;
+
     /// <summary>
     /// Keep the selection visible when the control loses focus. Must be part of the creation
     /// style: setting it afterwards is ignored until the window is recreated.
@@ -105,6 +110,8 @@ internal static class ListViewInterop {
 
     private const uint LVM_FIRST = 0x1000;
 
+    internal const uint LVM_GETIMAGELIST = LVM_FIRST + 2;
+    internal const uint LVM_SETIMAGELIST = LVM_FIRST + 3;
     internal const uint LVM_DELETEALLITEMS = LVM_FIRST + 9;
     internal const uint LVM_DELETEITEM = LVM_FIRST + 8;
     internal const uint LVM_GETITEMCOUNT = LVM_FIRST + 4;
@@ -142,6 +149,7 @@ internal static class ListViewInterop {
     // --- Item and column fields ----------------------------------------------------------
 
     internal const uint LVIF_TEXT = 0x0001;
+    internal const uint LVIF_IMAGE = 0x0002;
     internal const uint LVIF_STATE = 0x0008;
     internal const uint LVIF_PARAM = 0x0004;
 

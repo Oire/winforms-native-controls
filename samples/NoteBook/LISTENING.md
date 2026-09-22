@@ -3,7 +3,7 @@
 This is the acceptance test for the claims in the README, and it is written for whoever is
 evaluating, reviewing or contributing to this library — not for screen reader users
 specifically. The claims here are all of the form "a screen reader announces this correctly",
-and neither the compiler nor the 136 automated tests can check a single one of them. Only
+and neither the compiler nor the automated tests can check a single one of them. Only
 listening can.
 
 **You do not need to be a screen reader user to run this.** You need a screen reader running
@@ -155,6 +155,23 @@ very little.
 
 Worth doing this on a machine whose Windows display language is Hebrew as well as on an
 English one; the two are not the same test.
+
+## 8. Row images preserve the text and selection
+
+- In **All notes**, select a row and read its title, word count and modified date. Each row
+  has a decorative note icon; it conveys no information absent from the text.
+- Open **View** and choose **Show note icons**. The checkmark should clear. The icons should
+  disappear, while the selected row, focus and scroll position stay put. Read the columns
+  again and confirm they still announce the same values.
+- Turn **Show note icons** back on. The icons should return beside the existing row labels.
+- Switch categories with icons off and then on; newly populated rows should follow the setting.
+- Switch to **Hebrew** and back to **English** with icons enabled. The images should survive
+  the window recreation, and the row text should remain readable in each direction.
+- For a visual check, repeat in dark mode and high contrast and confirm that the icons do not
+  obscure the labels or the selection highlight. Close the sample after switching language.
+
+These are manual checks to perform; the automated image tests verify native state and resource
+lifetime, not appearance or screen-reader announcements.
 
 ## Reporting
 

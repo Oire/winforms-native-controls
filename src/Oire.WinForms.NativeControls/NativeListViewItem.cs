@@ -8,6 +8,7 @@ namespace Oire.WinForms.NativeControls;
 /// </summary>
 public sealed class NativeListViewItem {
     private readonly CellCollection _cells;
+    private int _imageIndex = -1;
 
     /// <summary>Creates a row from its column texts, first column first.</summary>
     public NativeListViewItem(params string[] cells) {
@@ -44,6 +45,27 @@ public sealed class NativeListViewItem {
             ListView?.InvalidateRow(Index);
         }
     }
+
+    /// <summary>
+    /// The zero-based image index in <see cref="NativeListView.SmallImageList"/>, or -1 for no image.
+    /// Changes update the attached row immediately. The index is retained when no image list is assigned.
+    /// </summary>
+    /// <exception cref="ArgumentOutOfRangeException">The value is less than -1.</exception>
+    public int ImageIndex {
+        get => _imageIndex;
+        set {
+            ArgumentOutOfRangeException.ThrowIfLessThan(value, -1);
+            if (_imageIndex == value) {
+                return;
+            }
+
+            _imageIndex = value;
+            ListView?.UpdateItemImage(this);
+        }
+    }
+
+    // -1 means a callback to Win32, whereas our public -1 means no image.
+    internal int NativeImageIndex => _imageIndex < 0 ? ListViewInterop.I_IMAGENONE : _imageIndex;
 
     /// <summary>Application data. The control neither reads nor interprets it.</summary>
     public object? Tag { get; set; }

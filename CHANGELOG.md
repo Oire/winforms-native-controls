@@ -9,6 +9,16 @@ in a major one.
 
 ## [Unreleased]
 
+### Added
+
+- `NativeListView.SmallImageList` and `NativeListViewItem.ImageIndex` display an optional
+  image beside each row label. Image changes reach existing rows, and the association survives
+  control and image-list handle recreation. Image lists remain caller-owned and can be shared;
+  disposing an image list detaches it from the controls that use it.
+- The NoteBook sample demonstrates row icons and a localized **Show note icons** toggle that
+  updates existing rows without rebuilding them. Its listening guide includes image, selection,
+  theme and language-switch checks.
+
 ## [1.1.0] - 2026-09-08
 
 ### Added
