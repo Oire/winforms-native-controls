@@ -107,6 +107,20 @@ _noteMenu.Resolver = request => {
 };
 ```
 
+## Row images
+
+Assign a WinForms `ImageList` to `NativeListView.SmallImageList`, then set each row's
+`ImageIndex` to a zero-based image index. The default index, `-1`, displays no image.
+
+```csharp
+networkList.SmallImageList = signalImages;
+networkList.Items.Add(new NativeListViewItem("Home", "85%") { ImageIndex = 3 });
+```
+
+The caller owns and disposes the image list; multiple controls may share it. The control
+follows image-list handle recreation and detaches when the image list is disposed. Keep
+meaningful image information in the row text as well, so screen readers can announce it.
+
 ## What is it?
 
 WinForms 1.0 shipped `MainMenu` and `ContextMenu`, thin wrappers over the Win32 menu API. .NET 2.0
@@ -259,6 +273,10 @@ It is a notes window with a category tree, a `NativeListView` and a text box, wi
 menu bar and two context menus. The layout exists for one reason: to make Tab move between the
 list and ordinary WinForms controls, which is the path most likely to break, since the list is a
 real `SysListView32` inside a container WinForms does not own.
+
+The rows use `SmallImageList` and `ImageIndex` for decorative note icons. **View → Show note
+icons** changes the image index on existing rows, including `-1` for no image, while preserving
+selection and focus. The form owns the image list and disposes it when it closes.
 
 It also ships an English and a Hebrew catalog with a language switch in the View menu, because
 mirroring the layout while the text stays English tests very little. Switching to Hebrew puts

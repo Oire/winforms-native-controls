@@ -52,6 +52,7 @@ public class NativeListView: Control {
     private ChildMessageFilter? _childSubclass;
     private ChildDropTarget? _dropTarget;
     private bool _multiSelect;
+    private ImageList? _smallImageList;
     private BorderStyle _borderStyle = BorderStyle.Fixed3D;
 
     // Null means "not set", which is what separates the window default below from a caller
@@ -106,6 +107,36 @@ public class NativeListView: Control {
             if (IsHandleCreated) {
                 RecreateListWindow();
             }
+        }
+    }
+
+    /// <summary>
+    /// Images displayed beside row labels, selected by <see cref="NativeListViewItem.ImageIndex"/>.
+    /// The caller owns the image list and may share it between controls. Disposing this control
+    /// does not dispose the image list. Recreating either handle preserves the association.
+    /// </summary>
+    [DefaultValue(null)]
+    [Category("Behavior")]
+    [Description("Images displayed beside row labels. The caller owns the image list.")]
+    public ImageList? SmallImageList {
+        get => _smallImageList;
+        set {
+            if (ReferenceEquals(_smallImageList, value)) {
+                return;
+            }
+
+            if (_smallImageList is not null) {
+                _smallImageList.RecreateHandle -= OnImageListRecreateHandle;
+                _smallImageList.Disposed -= OnImageListDisposed;
+            }
+
+            _smallImageList = value;
+            if (_smallImageList is not null) {
+                _smallImageList.RecreateHandle += OnImageListRecreateHandle;
+                _smallImageList.Disposed += OnImageListDisposed;
+            }
+
+            ApplySmallImageList();
         }
     }
 
@@ -551,6 +582,7 @@ public class NativeListView: Control {
     /// <inheritdoc />
     protected override void Dispose(bool disposing) {
         if (disposing) {
+            SmallImageList = null;
             DestroyListWindow();
         }
 
@@ -587,6 +619,19 @@ public class NativeListView: Control {
         } finally {
             Marshal.FreeCoTaskMem(buffer);
         }
+    }
+
+    internal void UpdateItemImage(NativeListViewItem item) {
+        if (_listHandle == IntPtr.Zero || item.Index < 0) {
+            return;
+        }
+
+        var native = new ListViewInterop.LVITEMW {
+            Mask = ListViewInterop.LVIF_IMAGE,
+            Item = item.Index,
+            Image = item.NativeImageIndex,
+        };
+        ListViewInterop.SendMessageW(_listHandle, ListViewInterop.LVM_SETITEMW, IntPtr.Zero, ref native);
     }
 
     internal void RefreshItem(NativeListViewItem item) {
@@ -755,9 +800,10 @@ public class NativeListView: Control {
         var buffer = Marshal.StringToCoTaskMemUni(item.Cells.Count > 0 ? item.Cells[0] : string.Empty);
         try {
             var native = new ListViewInterop.LVITEMW {
-                Mask = ListViewInterop.LVIF_TEXT,
+                Mask = ListViewInterop.LVIF_TEXT | ListViewInterop.LVIF_IMAGE,
                 Item = index,
                 Text = buffer,
+                Image = item.NativeImageIndex,
             };
 
             ListViewInterop.SendMessageW(_listHandle, ListViewInterop.LVM_INSERTITEMW, IntPtr.Zero, ref native);
@@ -832,7 +878,8 @@ public class NativeListView: Control {
         EnsureCommonControls();
 
         var style = ListViewInterop.WS_CHILD | ListViewInterop.WS_VISIBLE |
-            ListViewInterop.LVS_REPORT | ListViewInterop.LVS_SHOWSELALWAYS;
+            ListViewInterop.LVS_REPORT | ListViewInterop.LVS_SHOWSELALWAYS |
+            ListViewInterop.LVS_SHAREIMAGELISTS;
 
         if (!_multiSelect) {
             style |= ListViewInterop.LVS_SINGLESEL;
@@ -870,6 +917,7 @@ public class NativeListView: Control {
         ApplyFont();
         ApplyColors();
         ApplyAccessibleName();
+        ApplySmallImageList();
 
         _childSubclass = new ChildMessageFilter(this);
         _childSubclass.AssignHandle(_listHandle);
@@ -931,6 +979,20 @@ public class NativeListView: Control {
         DestroyListWindow();
         CreateListWindow();
     }
+
+    private void ApplySmallImageList() {
+        if (_listHandle == IntPtr.Zero) {
+            return;
+        }
+
+        ListViewInterop.SendMessageW(_listHandle, ListViewInterop.LVM_SETIMAGELIST,
+            ListViewInterop.LVSIL_SMALL, _smallImageList?.Handle ?? IntPtr.Zero);
+        Invalidate(true);
+    }
+
+    private void OnImageListRecreateHandle(object? sender, EventArgs e) => ApplySmallImageList();
+
+    private void OnImageListDisposed(object? sender, EventArgs e) => SmallImageList = null;
 
     private void ApplyFont() {
         if (_listHandle == IntPtr.Zero) {
